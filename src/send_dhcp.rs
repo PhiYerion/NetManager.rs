@@ -32,6 +32,7 @@ impl fmt::Display for DhcpError {
     }
 }
 
+#[derive(Debug)]
 pub struct Network {
     options: [Option<Ipv4Addr>; 3]
 }
@@ -199,14 +200,12 @@ fn format_dhcp_offer (dhcp_offer_packet: DhcpPacket) -> Network {
     let mut index = 0;
     let options_data = dhcp_offer.options;
     let mut net: Network = Network { options: [None, None, None] };
-    while index < options_data.len() {
+    while index < options_data.len() - 1 {
         let code = options_data[index];
         if code == 0x63 {
             index += 4;
             continue;
         }
-        let length = options_data[index + 1] as usize;
-
 
         use arrayref::{array_ref};
         if code == 0x01 {
@@ -217,12 +216,13 @@ fn format_dhcp_offer (dhcp_offer_packet: DhcpPacket) -> Network {
             let start = index + 2;
             let router = array_ref!(options_data, start, 4);
             net.options[1] = Some(ipv4_from_u8_array(router));
-        } else if code == 0xc0 {
+        } else if code == 0x06 {
             let start = index + 2;
             let dns = array_ref!(options_data, start, 4);
-            net.options[1] = Some(ipv4_from_u8_array(dns));
+            net.options[2] = Some(ipv4_from_u8_array(dns));
         }
 
+        let length = options_data[index + 1] as usize;
         index += length + 2;
     }
     net

@@ -6,5 +6,5 @@ mod set_net;
 use send_dhcp::get_netmask;
 
 fn main() {
-    println!("{:?}", get_netmask().unwrap());
+    println!("{:?}", get_netmask("enp7s0").unwrap());
 }
