@@ -94,19 +94,6 @@ impl CustDhcp {
 
             // Payload
             udp_packet.set_payload(&self.get_raw_packet());
-
-            let mut checksum_packet = self.get_raw_packet();
-            { // Check sum
-                let mut udp_header = MutableUdpPacket::new(&mut checksum_packet).unwrap();
-                udp_header.set_source(68);
-                udp_header.set_destination(67);
-                udp_header.set_length(DHCP_PACKET_LEN as u16);
-                let checksum = pnet::packet::udp::ipv4_checksum(
-                    &udp_header.to_immutable(),
-                    &source_ipv4,
-                    &destination_ipv4);
-                udp_header.set_checksum(checksum);
-            }
         }
         assert_eq!(comparison_copy, udp_packet.payload());
 
