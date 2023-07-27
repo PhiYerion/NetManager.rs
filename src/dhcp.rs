@@ -10,6 +10,7 @@ use pnet::packet::ipv4::MutableIpv4Packet;
 use pnet::packet::Packet;
 use pnet::packet::udp::MutableUdpPacket;
 use pnet::util::MacAddr;
+use crate::dhcp::DhcpOptions::NetmaskSlim;
 
 pub const DHCP_PACKET_LEN: usize = 314;
 
@@ -17,54 +18,116 @@ pub struct CustDhcp {
     pub packet: Dhcp
 }
 
+pub enum DhcpOptions {
+    NetmaskSlim,
+    Slim,
+    Full
+}
+
 impl CustDhcp {
-    pub fn new (mac: MacAddr) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new (mac: MacAddr, dhcp_options: DhcpOptions) -> Result<Self, Box<dyn std::error::Error>> {
         let transaction_id = rand::thread_rng().gen::<u32>();
         dbg!(transaction_id);
 
-        let packet = Dhcp {
-            op: DhcpOperation { 0: 1 },                     // BOOTREQUEST
-            htype: Ethernet,                                // Ethernet
-            hlen: 6,                                        // MAC address length
-            hops: 0,
-            xid: transaction_id,
-            secs: 0,
-            flags: 0x0000,                                  // Unicast flag?
-            ciaddr: Ipv4Addr::new(0, 0, 0, 0),
-            yiaddr: Ipv4Addr::new(0, 0, 0, 0),
-            siaddr: Ipv4Addr::new(0, 0, 0, 0),
-            giaddr: Ipv4Addr::new(0, 0, 0, 0),
-            chaddr: mac,
-            chaddr_pad: vec![],
-            sname: vec![],
-            file: vec![],
-            options: vec![0x63, 0x82, 0x53, 0x63,           // Magic cookie: DHCP
-                          0x35, 0x01, 0x01,                 // DHCP Discover
-                          0x37, 0x0e,                       // Parameter List:
-                            0x01,                               // Subnet Mask
-                            0x79,                               // Classless Static Route
-                            0x03,                               // Router
-                            0x06,                               // Domain Name Server
-                            0x0c,                               // Host Name
-                            0x0f,                               // Domain Name
-                            0x1a,                               // Interface MTU
-                            0x1c,                               // Broadcast Address
-                            0x21,                               // Static Route
-                            0x33,                               // IP Address Lease Time
-                            0x36,                               // DHCP Server Identifier
-                            0x3a,                               // Renewal Time Value
-                            0x3b,                               // Rebinding Time Value
-                            0x77,                               // Domain Search
-                          0x39, 0x02, 0x05, 0xc0,           // Max DHCP Message Size
-                          0x3d, 0x13,                       // Client identifier
-                            0xff, mac.2, mac.3, mac.4, mac.5,   // IAID
-                            0x00, 0x01, 0x00, 0x01,             // Misc
-                            0x2c, 0x52, 0xed, 0x4c,             // Time (yeah this is problematic)
-                            mac.0, mac.1, mac.2, mac.3, mac.4, mac.5, // Link Layer Address
-                          0x50, 0x00,                       // Rapid Commit
-                          0x91, 0x01, 0x01,                 // Forcerenew Nonce Capable
-                          0xff                              // End
-            ],
+        let packet = match dhcp_options {
+            DhcpOptions::Full => {
+                 Dhcp {
+                    op: DhcpOperation { 0: 1 },                     // BOOTREQUEST
+                    htype: Ethernet,                                // Ethernet
+                    hlen: 6,                                        // MAC address length
+                    hops: 0,
+                    xid: transaction_id,
+                    secs: 0,
+                    flags: 0x0000,                                  // Unicast flag?
+                    ciaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    yiaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    siaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    giaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    chaddr: mac,
+                    chaddr_pad: vec![],
+                    sname: vec![],
+                    file: vec![],
+                    options: vec![0x63, 0x82, 0x53, 0x63,           // Magic cookie: DHCP
+                                  0x35, 0x01, 0x01,                 // DHCP Discover
+                                  0x37, 0x0e,                       // Parameter List:
+                                  0x01,                               // Subnet Mask
+                                  0x79,                               // Classless Static Route
+                                  0x03,                               // Router
+                                  0x06,                               // Domain Name Server
+                                  0x0c,                               // Host Name
+                                  0x0f,                               // Domain Name
+                                  0x1a,                               // Interface MTU
+                                  0x1c,                               // Broadcast Address
+                                  0x21,                               // Static Route
+                                  0x33,                               // IP Address Lease Time
+                                  0x36,                               // DHCP Server Identifier
+                                  0x3a,                               // Renewal Time Value
+                                  0x3b,                               // Rebinding Time Value
+                                  0x77,                               // Domain Search
+                                  0x39, 0x02, 0x05, 0xc0,           // Max DHCP Message Size
+                                  0x3d, 0x13,                       // Client identifier
+                                  0xff, mac.2, mac.3, mac.4, mac.5,   // IAID
+                                  0x00, 0x01, 0x00, 0x01,             // Misc
+                                  0x2c, 0x52, 0xed, 0x4c,             // Time (yeah this is problematic)
+                                  mac.0, mac.1, mac.2, mac.3, mac.4, mac.5, // Link Layer Address
+                                  0x50, 0x00,                       // Rapid Commit
+                                  0x91, 0x01, 0x01,                 // Forcerenew Nonce Capable
+                                  0xff                              // End
+                    ],
+                }
+            }
+            DhcpOptions::Slim => {
+                Dhcp {
+                    op: DhcpOperation { 0: 1 },                     // BOOTREQUEST
+                    htype: Ethernet,                                // Ethernet
+                    hlen: 6,                                        // MAC address length
+                    hops: 0,
+                    xid: transaction_id,
+                    secs: 0,
+                    flags: 0x0000,                                  // Unicast flag?
+                    ciaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    yiaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    siaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    giaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    chaddr: mac,
+                    chaddr_pad: vec![],
+                    sname: vec![],
+                    file: vec![],
+                    options: vec![0x63, 0x82, 0x53, 0x63,           // Magic cookie: DHCP
+                                  0x35, 0x01, 0x01,                 // DHCP Discover
+                                  0x37, 0x0e,                       // Parameter List:
+                                  0x01,                               // Subnet Mask
+                                  0x03,                               // Router
+                                  0x21,                               // Static Route
+                                  0xff                              // End
+                    ],
+                }
+            }
+            DhcpOptions::NetmaskSlim => {
+                Dhcp {
+                    op: DhcpOperation { 0: 1 },                     // BOOTREQUEST
+                    htype: Ethernet,                                // Ethernet
+                    hlen: 6,                                        // MAC address length
+                    hops: 0,
+                    xid: transaction_id,
+                    secs: 0,
+                    flags: 0x0000,                                  // Unicast flag?
+                    ciaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    yiaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    siaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    giaddr: Ipv4Addr::new(0, 0, 0, 0),
+                    chaddr: mac,
+                    chaddr_pad: vec![],
+                    sname: vec![],
+                    file: vec![],
+                    options: vec![0x63, 0x82, 0x53, 0x63,           // Magic cookie: DHCP
+                                  0x35, 0x01, 0x01,                 // DHCP Discover
+                                  0x37, 0x0e,                       // Parameter List:
+                                  0x01,                               // Subnet Mask
+                                  0xff                              // End
+                    ],
+                }
+            }
         };
 
         Ok(CustDhcp { packet })

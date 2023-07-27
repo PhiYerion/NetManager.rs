@@ -10,7 +10,7 @@ use pnet::packet::ipv4::{Ipv4Packet};
 use pnet::packet::udp::{UdpPacket};
 use pnet::packet::dhcp::{DhcpPacket, Dhcp, MutableDhcpPacket};
 use pnet::util::{MacAddr};
-use crate::dhcp::CustDhcp;
+use crate::dhcp::{CustDhcp, DhcpOptions};
 use crate::dhcp::DHCP_PACKET_LEN;
 
 #[derive(Debug)]
@@ -57,7 +57,7 @@ pub fn get_netmask<'a>(interface_name: &String, mac: MacAddr) -> Result<Network,
     };
     dbg!("Got interface {}", &interface.name);
 
-    let dhcp_wrapper = CustDhcp::new(mac)?;
+    let dhcp_wrapper = CustDhcp::new(mac, DhcpOptions::Slim)?;
     let xid = dhcp_wrapper.packet.xid;
     dbg!("Built dhcp_wrapper");
 
