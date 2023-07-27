@@ -6,6 +6,7 @@ mod set_net;
 use std::collections::{HashSet};
 use std::io;
 use clap::Parser;
+use pnet::util::MacAddr;
 
 use send_dhcp::get_netmask;
 use crate::get_net_iface::get_network_interfaces;
@@ -60,5 +61,5 @@ fn main() {
         }
     };
 
-    println!("{:?}", get_netmask(&args.interface).unwrap());
+    println!("{:?}", get_netmask(&args.interface, MacAddr(0x18, 0xc0, 0x4d, 0x5b, 0x03, 0xae)).unwrap());
 }

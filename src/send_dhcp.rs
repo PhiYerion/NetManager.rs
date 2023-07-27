@@ -50,14 +50,14 @@ impl Network {
 }
 
 
-pub fn get_netmask<'a>(interface_name: &String) -> Result<Network, Box<dyn Error>> {
+pub fn get_netmask<'a>(interface_name: &String, mac: MacAddr) -> Result<Network, Box<dyn Error>> {
     let interface = match get_interface(interface_name) {
         Some(r) => r,
         None => return Err(Box::new(DhcpError::Specific("Unable to find interface".to_string())))
     };
     dbg!("Got interface {}", &interface.name);
 
-    let dhcp_wrapper = CustDhcp::new()?;
+    let dhcp_wrapper = CustDhcp::new(mac)?;
     let xid = dhcp_wrapper.packet.xid;
     dbg!("Built dhcp_wrapper");
 
@@ -67,7 +67,7 @@ pub fn get_netmask<'a>(interface_name: &String) -> Result<Network, Box<dyn Error
     let res = match get_dhcp_offer(
         xid,
         send_packet(&interface, eframe.to_immutable()),
-        MacAddr(0x18, 0xc0, 0x4d, 0x5b, 0x03, 0xae)
+        mac
         ) {
             Some(r) => r,
             None => return Err(Box::new(DhcpError::Specific("Unable create get dhcp response".to_string())))

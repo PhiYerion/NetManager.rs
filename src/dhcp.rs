@@ -18,7 +18,7 @@ pub struct CustDhcp {
 }
 
 impl CustDhcp {
-    pub fn new () -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new (mac: MacAddr) -> Result<Self, Box<dyn std::error::Error>> {
         let transaction_id = rand::thread_rng().gen::<u32>();
         dbg!(transaction_id);
 
@@ -34,7 +34,7 @@ impl CustDhcp {
             yiaddr: Ipv4Addr::new(0, 0, 0, 0),
             siaddr: Ipv4Addr::new(0, 0, 0, 0),
             giaddr: Ipv4Addr::new(0, 0, 0, 0),
-            chaddr: MacAddr::new(0x18, 0xc0, 0x4d, 0x5b, 0x03, 0xae),
+            chaddr: mac,
             chaddr_pad: vec![],
             sname: vec![],
             file: vec![],
@@ -57,10 +57,10 @@ impl CustDhcp {
                             0x77,                               // Domain Search
                           0x39, 0x02, 0x05, 0xc0,           // Max DHCP Message Size
                           0x3d, 0x13,                       // Client identifier
-                            0xff, 0x4d, 0x5b, 0x03, 0xae,       // IAID
+                            0xff, mac.2, mac.3, mac.4, mac.5,   // IAID
                             0x00, 0x01, 0x00, 0x01,             // Misc
                             0x2c, 0x52, 0xed, 0x4c,             // Time (yeah this is problematic)
-                            0x18, 0xc0, 0x4d, 0x5b, 0x03, 0xae, // Link Layer Address
+                            mac.0, mac.1, mac.2, mac.3, mac.4, mac.5, // Link Layer Address
                           0x50, 0x00,                       // Rapid Commit
                           0x91, 0x01, 0x01,                 // Forcerenew Nonce Capable
                           0xff                              // End
