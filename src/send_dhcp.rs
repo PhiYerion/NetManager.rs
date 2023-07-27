@@ -1,15 +1,13 @@
 use std::error::Error;
 use std::fmt;
-use rand::Rng;
 
 use std::net::{Ipv4Addr};
 
 use pnet::datalink::{self, Channel, DataLinkReceiver, NetworkInterface};
 use pnet::packet::{FromPacket, Packet,};
-use pnet::packet::ethernet::{EthernetPacket, EtherTypes, MutableEthernetPacket};
-use pnet::packet::ipv4::{Ipv4Packet, MutableIpv4Packet};
-use pnet::packet::ip::IpNextHeaderProtocols;
-use pnet::packet::udp::{MutableUdpPacket, UdpPacket};
+use pnet::packet::ethernet::{EthernetPacket};
+use pnet::packet::ipv4::{Ipv4Packet};
+use pnet::packet::udp::{UdpPacket};
 use pnet::packet::dhcp::{DhcpPacket, Dhcp, MutableDhcpPacket};
 use pnet::util::{MacAddr};
 use crate::dhcp::CustDhcp;
@@ -52,7 +50,7 @@ impl Network {
 }
 
 
-pub fn get_netmask<'a>(interface_name: &str) -> Result<Network, Box<dyn Error>> {
+pub fn get_netmask<'a>(interface_name: &String) -> Result<Network, Box<dyn Error>> {
     let interface = match get_interface(interface_name) {
         Some(r) => r,
         None => return Err(Box::new(DhcpError::Specific("Unable to find interface".to_string())))
@@ -60,13 +58,10 @@ pub fn get_netmask<'a>(interface_name: &str) -> Result<Network, Box<dyn Error>> 
     dbg!("Got interface {}", &interface.name);
 
     let dhcp_wrapper = CustDhcp::new()?;
-    let xid = dhcp_wrapper.xid;
+    let xid = dhcp_wrapper.packet.xid;
     dbg!("Built dhcp_wrapper");
 
-    let eframe = &mut build_dhcp_to_layer2(
-        &interface,
-        dhcp_wrapper
-    );
+    let eframe = &mut dhcp_wrapper.build_dhcp_to_layer2(&interface);
     dbg!("Built ethernet frame");
 
     let res = match get_dhcp_offer(
@@ -93,78 +88,9 @@ fn get_interface(interface_name: &str) -> Option<NetworkInterface> {
         .find(|iface| iface.name == interface_name)
 }
 
-fn build_dhcp_to_layer2(interface: &NetworkInterface, mut dhcp_wrapper: CustDhcp) -> MutableEthernetPacket {
-    let source_ipv4 = Ipv4Addr::new(0, 0, 0, 0);
-    let destination_ipv4 = Ipv4Addr::new(255, 255, 255, 255);
-
-    // UDP packet
-    let mut padding = [0; DHCP_PACKET_LEN + 8];
-    let comparison_copy = dhcp_wrapper.packet;
-    let mut udp_packet = MutableUdpPacket::new(&mut padding).unwrap();
-    {
-        // Header
-        udp_packet.set_source(68);
-        udp_packet.set_destination(67);
-        udp_packet.set_length(DHCP_PACKET_LEN as u16);
-
-        // Payload
-        udp_packet.set_payload(&dhcp_wrapper.packet);
-
-        { // Check sum
-            let mut udp_header = MutableUdpPacket::new(&mut dhcp_wrapper.packet).unwrap();
-            udp_header.set_source(68);
-            udp_header.set_destination(67);
-            udp_header.set_length(DHCP_PACKET_LEN as u16);
-            let checksum = pnet::packet::udp::ipv4_checksum(
-                &udp_header.to_immutable(),
-                &source_ipv4,
-                &destination_ipv4);
-            udp_header.set_checksum(checksum);
-        }
-    }
-    assert_eq!(comparison_copy, udp_packet.payload());
-
-    // IPv4 packet
-    let mut padding2: [u8; DHCP_PACKET_LEN + 28] = [0; DHCP_PACKET_LEN + 28];
-    let mut ipv4_packet = MutableIpv4Packet::new(&mut padding2).unwrap();
-    {
-        // Header:
-        ipv4_packet.set_version(4);
-        ipv4_packet.set_header_length(5);
-        ipv4_packet.set_identification(rand::thread_rng().gen::<u16>());                                // Will not use this later (yet)
-        ipv4_packet.set_source(source_ipv4);
-        ipv4_packet.set_destination(destination_ipv4);
-        ipv4_packet.set_next_level_protocol(IpNextHeaderProtocols::Udp);
-        ipv4_packet.set_ttl(64);
-        ipv4_packet.set_total_length((DHCP_PACKET_LEN + 28) as u16);
-
-        // Check sum:
-        let checksum_value = pnet::packet::ipv4::checksum(&ipv4_packet.to_immutable());
-        ipv4_packet.set_checksum(checksum_value);
-
-        // Payload:
-        ipv4_packet.set_payload(udp_packet.packet());
-    }
-    assert_eq!(udp_packet.packet(), ipv4_packet.payload());
-
-
-    let ethernet_buffer = vec![0u8; DHCP_PACKET_LEN + 42];
-
-    let mut ethernet_packet = MutableEthernetPacket::owned(ethernet_buffer).unwrap();
-    {
-        ethernet_packet.set_destination(MacAddr::broadcast());
-        ethernet_packet.set_source(interface.mac.unwrap());
-        ethernet_packet.set_ethertype(EtherTypes::Ipv4);
-        ethernet_packet.set_payload(ipv4_packet.packet());
-    }
-    assert_eq!(ethernet_packet.payload(), ipv4_packet.packet());
-
-    ethernet_packet
-}
-
 fn send_packet (interface: &NetworkInterface, packet: EthernetPacket) -> Box<dyn DataLinkReceiver> {
     // Send the packet
-    let (mut tx, mut rx) = match datalink::channel(&interface, Default::default()) {
+    let (mut tx, rx) = match datalink::channel(&interface, Default::default()) {
         Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
         Ok(_) => panic!("Unknown channel type"),
         Err(e) => panic!("Error creating datalink channel: {}", e),

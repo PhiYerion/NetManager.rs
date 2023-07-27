@@ -1,23 +1,28 @@
 // Build the DHCP Discover packet
 use rand::Rng;
 use std::net::{Ipv4Addr};
+use pnet::datalink::NetworkInterface;
 use pnet::packet::dhcp::DhcpHardwareTypes::Ethernet;
 use pnet::packet::dhcp::{Dhcp, MutableDhcpPacket, DhcpOperation};
+use pnet::packet::ethernet::{EtherTypes, MutableEthernetPacket};
+use pnet::packet::ip::IpNextHeaderProtocols;
+use pnet::packet::ipv4::MutableIpv4Packet;
 use pnet::packet::Packet;
+use pnet::packet::udp::MutableUdpPacket;
 use pnet::util::MacAddr;
 
 pub const DHCP_PACKET_LEN: usize = 314;
 
 pub struct CustDhcp {
-    pub xid: u32,
-    pub packet: [u8; DHCP_PACKET_LEN],
+    pub packet: Dhcp
 }
 
 impl CustDhcp {
     pub fn new () -> Result<Self, Box<dyn std::error::Error>> {
         let transaction_id = rand::thread_rng().gen::<u32>();
+        dbg!(transaction_id);
 
-        let dhcp_request = Dhcp {
+        let packet = Dhcp {
             op: DhcpOperation { 0: 1 },                     // BOOTREQUEST
             htype: Ethernet,                                // Ethernet
             hlen: 6,                                        // MAC address length
@@ -62,11 +67,84 @@ impl CustDhcp {
             ],
         };
 
+        Ok(CustDhcp { packet })
+    }
+
+    fn get_raw_packet(&self) -> [u8; 314] {
         let mut dhcp_packet = MutableDhcpPacket::owned(vec![0u8; DHCP_PACKET_LEN]).expect(" ");
-        MutableDhcpPacket::populate(&mut dhcp_packet, &dhcp_request);
-        Ok(Self {
-            xid: transaction_id,
-            packet: dhcp_packet.packet().try_into()?,
-        })
+        dhcp_packet.populate(&self.packet);
+        let mut raw_packet: [u8; DHCP_PACKET_LEN] = [0; DHCP_PACKET_LEN];
+        raw_packet.copy_from_slice(dhcp_packet.packet());
+        raw_packet
+    }
+
+    pub fn build_dhcp_to_layer2(&self, interface: &NetworkInterface) -> MutableEthernetPacket {
+        let source_ipv4 = Ipv4Addr::new(0, 0, 0, 0);
+        let destination_ipv4 = Ipv4Addr::new(255, 255, 255, 255);
+
+        // UDP packet
+        let mut padding = [0; DHCP_PACKET_LEN + 8];
+        let comparison_copy = self.get_raw_packet();
+        let mut udp_packet = MutableUdpPacket::new(&mut padding).unwrap();
+        {
+            // Header
+            udp_packet.set_source(68);
+            udp_packet.set_destination(67);
+            udp_packet.set_length(DHCP_PACKET_LEN as u16);
+
+            // Payload
+            udp_packet.set_payload(&self.get_raw_packet());
+
+            let mut checksum_packet = self.get_raw_packet();
+            { // Check sum
+                let mut udp_header = MutableUdpPacket::new(&mut checksum_packet).unwrap();
+                udp_header.set_source(68);
+                udp_header.set_destination(67);
+                udp_header.set_length(DHCP_PACKET_LEN as u16);
+                let checksum = pnet::packet::udp::ipv4_checksum(
+                    &udp_header.to_immutable(),
+                    &source_ipv4,
+                    &destination_ipv4);
+                udp_header.set_checksum(checksum);
+            }
+        }
+        assert_eq!(comparison_copy, udp_packet.payload());
+
+        // IPv4 packet
+        let mut padding2: [u8; DHCP_PACKET_LEN + 28] = [0; DHCP_PACKET_LEN + 28];
+        let mut ipv4_packet = MutableIpv4Packet::new(&mut padding2).unwrap();
+        {
+            // Header:
+            ipv4_packet.set_version(4);
+            ipv4_packet.set_header_length(5);
+            ipv4_packet.set_identification(rand::thread_rng().gen::<u16>());                                // Will not use this later (yet)
+            ipv4_packet.set_source(source_ipv4);
+            ipv4_packet.set_destination(destination_ipv4);
+            ipv4_packet.set_next_level_protocol(IpNextHeaderProtocols::Udp);
+            ipv4_packet.set_ttl(64);
+            ipv4_packet.set_total_length((DHCP_PACKET_LEN + 28) as u16);
+
+            // Check sum:
+            let checksum_value = pnet::packet::ipv4::checksum(&ipv4_packet.to_immutable());
+            ipv4_packet.set_checksum(checksum_value);
+
+            // Payload:
+            ipv4_packet.set_payload(udp_packet.packet());
+        }
+        assert_eq!(udp_packet.packet(), ipv4_packet.payload());
+
+
+        let ethernet_buffer = vec![0u8; DHCP_PACKET_LEN + 42];
+
+        let mut ethernet_packet = MutableEthernetPacket::owned(ethernet_buffer).unwrap();
+        {
+            ethernet_packet.set_destination(MacAddr::broadcast());
+            ethernet_packet.set_source(interface.mac.unwrap());
+            ethernet_packet.set_ethertype(EtherTypes::Ipv4);
+            ethernet_packet.set_payload(ipv4_packet.packet());
+        }
+        assert_eq!(ethernet_packet.payload(), ipv4_packet.packet());
+
+        ethernet_packet
     }
 }
