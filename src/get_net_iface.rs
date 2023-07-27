@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::ffi::CStr;
-use libc::{self, c_char};
+use libc::{self};
 use std::str;
 
 pub fn get_network_interfaces() -> Vec<String> {
