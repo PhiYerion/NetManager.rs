@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fmt;
 
 use std::net::{Ipv4Addr};
+use netdevice::get_hardware;
 
 use pnet::datalink::{self, Channel, DataLinkReceiver, NetworkInterface};
 use pnet::packet::{FromPacket, Packet,};
@@ -12,6 +13,7 @@ use pnet::packet::dhcp::{DhcpPacket, Dhcp, MutableDhcpPacket};
 use pnet::util::{MacAddr};
 use crate::dhcp::{CustDhcp, DhcpOptions};
 use crate::dhcp::DHCP_PACKET_LEN;
+use crate::mac::get_mac;
 
 #[derive(Debug)]
 enum DhcpError {
@@ -50,7 +52,8 @@ impl Network {
 }
 
 
-pub fn get_netmask<'a>(interface_name: &String, mac: MacAddr) -> Result<Network, Box<dyn Error>> {
+pub fn get_netmask<'a>(interface_name: &String) -> Result<Network, Box<dyn Error>> {
+    let mac = get_mac(interface_name);
     let interface = match get_interface(interface_name) {
         Some(r) => r,
         None => return Err(Box::new(DhcpError::Specific("Unable to find interface".to_string())))
@@ -110,7 +113,10 @@ fn get_dhcp_offer<'a>(
     while let Ok(base_packet) = rx.next() {
         // Process the received packet
         let ethernet_packet = match EthernetPacket::new(base_packet) {
-            Some(packet) => packet,
+            Some(packet) => {
+                dbg!(&packet);
+                packet
+            },
             None => continue, // Skip packets that are not Ethernet
         };
 
@@ -119,17 +125,26 @@ fn get_dhcp_offer<'a>(
         }
 
         let udp_packet = match UdpPacket::new(ethernet_packet.payload()) {
-            Some(packet) => packet,
+            Some(packet) => {
+                dbg!(&packet);
+                packet
+            },
             None => continue, // Skip packets that are not UDP
         };
 
         let ipv4_packet = match Ipv4Packet::new(udp_packet.payload()) {
-            Some(packet) => packet,
+            Some(packet) => {
+                dbg!(&packet);
+                packet
+            },
             None => continue, // Skip packets that are not IPv4
         };
 
         let dhcp_packet = match DhcpPacket::new(ipv4_packet.payload()) {
-            Some(packet) => packet,
+            Some(packet) => {
+                dbg!(&packet);
+                packet
+            },
             None => continue, // Skip packets that are not DHCP
         };
 

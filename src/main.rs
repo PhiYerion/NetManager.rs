@@ -2,6 +2,7 @@ mod dhcp;
 mod send_dhcp;
 mod get_net_iface;
 mod set_net;
+mod mac;
 
 use std::collections::{HashSet};
 use std::io;
@@ -61,5 +62,5 @@ fn main() {
         }
     };
 
-    println!("{:?}", get_netmask(&args.interface, MacAddr(0x18, 0xc0, 0x4d, 0x5b, 0x03, 0xae)).unwrap());
+    println!("{:?}", get_netmask(&args.interface));
 }
