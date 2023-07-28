@@ -4,17 +4,15 @@ mod get_net_iface;
 mod set_net;
 mod mac;
 
-use std::collections::{HashSet};
 use std::io;
 use clap::Parser;
-use pnet::util::MacAddr;
 
 use send_dhcp::get_netmask;
 use crate::get_net_iface::get_network_interfaces;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
-struct inlineArgs {
+struct InlineArgs {
     /// Network interface
     interface: Option<String>
 }
@@ -42,9 +40,9 @@ fn interactive_cli() -> Args {
 }
 
 fn main() {
-    let inlineArgs = inlineArgs::parse();
+    let inline_args = InlineArgs::parse();
 
-    let args = match inlineArgs.interface {
+    let args = match inline_args.interface {
         Some(interface) => {
             let interfaces = get_network_interfaces();
 

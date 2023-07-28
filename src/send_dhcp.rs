@@ -2,7 +2,6 @@ use std::error::Error;
 use std::fmt;
 
 use std::net::{Ipv4Addr};
-use netdevice::get_hardware;
 
 use pnet::datalink::{self, Channel, DataLinkReceiver, NetworkInterface};
 use pnet::packet::{FromPacket, Packet,};

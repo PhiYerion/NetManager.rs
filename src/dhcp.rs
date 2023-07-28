@@ -10,7 +10,6 @@ use pnet::packet::ipv4::MutableIpv4Packet;
 use pnet::packet::Packet;
 use pnet::packet::udp::MutableUdpPacket;
 use pnet::util::MacAddr;
-use crate::dhcp::DhcpOptions::NetmaskSlim;
 
 pub const DHCP_PACKET_LEN: usize = 314;
 
