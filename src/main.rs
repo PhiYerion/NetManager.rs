@@ -5,10 +5,12 @@ mod set_net;
 mod mac;
 
 use std::io;
+use std::net::Ipv4Addr;
 use clap::Parser;
 
 use send_dhcp::get_netmask;
 use crate::get_net_iface::get_network_interfaces;
+use crate::set_net::up;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -61,4 +63,5 @@ fn main() {
     };
 
     println!("{:?}", get_netmask(&args.interface));
+    up(&args.interface, Ipv4Addr::new(192, 168, 1, 216));
 }

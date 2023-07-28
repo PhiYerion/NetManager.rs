@@ -1,4 +1,8 @@
+use std::io::Error;
+use std::net::Ipv4Addr;
 use std::process::Command;
+use libc::{c_char, c_int, sockaddr};
+use netdevice::{set_address, set_destination, set_broadcast, set_netmask, get_address};
 
 macro_rules! cmd {
     ($name:literal, $command:expr) => {{
@@ -19,19 +23,33 @@ macro_rules! cmd {
     }};
 }
 
+pub fn new_socket() -> Result<c_int, Error> {
+    use libc::{AF_INET,
+               IPPROTO_UDP,
+               SOCK_DGRAM};
 
-pub fn up(interface: &str, address: &str, _gateway: &str) {
-    
+    let res = unsafe { libc::socket(
+        AF_INET,
+        SOCK_DGRAM,
+        IPPROTO_UDP) };
 
-    cmd!("ip address add", ["address", "add", address, "brd", "+", "dev", interface]).unwrap();
+    match res {
+        -1 => Err(Error::last_os_error()),
+        sock => Ok(sock),
+    }
+}
 
-    //if !cmd!("ip address add", ["address", "add", address, "brd", "+", "dev", interface]) { print!("error1") };
-    //if !cmd!("ip route add", ["route", "add", "default", "via", gateway, "dev", interface]) { print!("error2") };
+pub fn up(interface: &str, addr: Ipv4Addr) -> Result<u8, Error> {
+    let mut sock = get_address(new_socket()?, interface)?;
+    dbg!(&sock.sa_data);
+    for i in 2..6 {
+        sock.sa_data[i] = addr.octets()[i - 2] as c_char;
+    }
+    dbg!(&sock.sa_data);
 
-    let _output = Command::new("ip")
-    .args(&["address", "flush", "dev", interface])
-    .output();
+    set_address(new_socket()?, interface, sock);
 
+    Ok(1)
 }
 
 pub fn down(interface: &str) {
