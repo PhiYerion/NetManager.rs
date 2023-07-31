@@ -7,10 +7,12 @@ mod mac;
 use std::io;
 use std::net::Ipv4Addr;
 use clap::Parser;
+use libc::wait;
+use tokio::runtime::Runtime;
 
 use send_dhcp::get_netmask;
 use crate::get_net_iface::get_network_interfaces;
-use crate::set_net::up;
+use crate::set_net::{set_route, up};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -41,7 +43,8 @@ fn interactive_cli() -> Args {
     Args{ interface: input }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let inline_args = InlineArgs::parse();
 
     let args = match inline_args.interface {
@@ -62,6 +65,10 @@ fn main() {
         }
     };
 
-    println!("{:?}", get_netmask(&args.interface));
-    up(&args.interface, Ipv4Addr::new(192, 168, 1, 216));
+    // println!("{:?}", get_netmask(&args.interface));
+
+    let a = up(&args.interface, Ipv4Addr::new(192, 168, 4, 222)).await.unwrap();
+    println!("{}", a);
+    let b = set_route().unwrap();
+
 }

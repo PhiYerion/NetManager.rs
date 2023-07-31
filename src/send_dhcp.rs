@@ -141,7 +141,6 @@ fn get_dhcp_offer<'a>(
 
         let dhcp_packet = match DhcpPacket::new(ipv4_packet.payload()) {
             Some(packet) => {
-                dbg!(&packet);
                 packet
             },
             None => continue, // Skip packets that are not DHCP

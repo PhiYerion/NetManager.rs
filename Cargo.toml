@@ -11,7 +11,9 @@ clap = { version = "4.3.19", features = ["derive"] }
 get_if_addrs = "0.5.3"
 itertools = "0.11.0"
 libc = "0.2.147"
+net-route = "0.2.5"
 netdevice = "0.1.1"
 pnet = "0.34.0"
 pnet_macros = "0.34.0"
 rand = "0.8.5"
+tokio = { version = "1.29.1", features = ["rt-multi-thread"] }
