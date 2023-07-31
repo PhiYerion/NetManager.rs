@@ -1,7 +1,5 @@
 mod dhcp;
 mod send_dhcp;
-mod get_net_iface;
-mod set_net;
 mod mac;
 
 use std::io;
