@@ -44,6 +44,19 @@ pub fn new_socket() -> Result<c_int, Error> {
 }
 
 pub async fn up(interface: &str, addr: Ipv4Addr) -> Result<u8, Error> {
+    let output: std::process::Output = Command::new("ip")
+        .args(&["link", "set", "up", interface])
+        .output()
+        .expect("Failed to execute 'ip set up' command");
+
+    // Check if the command was executed successfully
+    if !output.status.success() {
+        eprintln!(
+            "Error occurred while executing 'ip set up': {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
     let new_address = sockaddr{
         sa_family: AF_INET as sa_family_t,
         sa_data: [0, 0,

@@ -39,19 +39,19 @@ pub struct Network {
 }
 
 impl Network {
-    fn get_netmask(&self) -> Option<Ipv4Addr> {
+    pub fn get_netmask(&self) -> Option<Ipv4Addr> {
         self.options[0]
     }
-    fn get_gateway(&self) -> Option<Ipv4Addr> {
+    pub fn get_gateway(&self) -> Option<Ipv4Addr> {
         self.options[1]
     }
-    fn get_dns(&self) -> Option<Ipv4Addr> {
+    pub fn get_dns(&self) -> Option<Ipv4Addr> {
         self.options[2]
     }
 }
 
 
-pub fn get_netmask<'a>(interface_name: &String) -> Result<Network, Box<dyn Error>> {
+pub fn get_network<'a>(interface_name: &String) -> Result<Network, Box<dyn Error>> {
     let mac = get_mac(interface_name);
     let interface = match get_interface(interface_name) {
         Some(r) => r,

@@ -2,25 +2,8 @@ use std::ffi::CString;
 use std::io;
 use std::net::{Ipv4Addr, UdpSocket};
 use std::os::fd::AsRawFd;
-use libc::{AF_INET, sa_family_t, sockaddr};
 
-pub fn gen_sockaddr(addr: Ipv4Addr) -> sockaddr {
-    sockaddr {
-        sa_family: AF_INET as sa_family_t,
-        sa_data: [0, 0,
-            addr.octets()[0] as i8,
-            addr.octets()[1] as i8,
-            addr.octets()[2] as i8,
-            addr.octets()[3] as i8,
-            0, 0, 0, 0, 0, 0, 0, 0]
-    }
-}
-
-pub fn get_mut_c_char(input: &str) -> *mut libc::c_char {
-    let rt_dev_cstring = CString::new(input).expect("CString::new failed");
-
-    rt_dev_cstring.as_ptr() as *mut libc::c_char
-}
+use crate::common::gen_sockaddr;
 
 pub fn set_route(interface: &str, addr: Ipv4Addr) -> Result<(), io::Error> {
     let socket = UdpSocket::bind("0.0.0.0:0")?;
@@ -28,8 +11,11 @@ pub fn set_route(interface: &str, addr: Ipv4Addr) -> Result<(), io::Error> {
     let rt_gateway = gen_sockaddr(addr);
     let rt_dst = gen_sockaddr(Ipv4Addr::new(0,0,0,0));
     let rt_genmask = gen_sockaddr(Ipv4Addr::new(0,0,0,0));
-    let rt_dev = get_mut_c_char(interface);
 
+    let rt_dev_cstring = CString::new(interface)
+        .expect("CString::new failed");
+    let rt_dev = rt_dev_cstring.as_ptr()
+        as *mut libc::c_char;
 
     let mut rt = libc::rtentry {
         rt_pad1: 0,
