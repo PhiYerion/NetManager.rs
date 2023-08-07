@@ -1,11 +1,12 @@
-mod set_net;
+mod address;
 mod get_net_iface;
 mod common;
-mod routes;
+mod route;
 
 
 pub use crate::common::get_interface_names;
-pub use crate::set_net::{up, down};
-pub use crate::routes::flush_routes;
-pub use crate::routes::get_routes;
-pub use crate::routes::set_default_route;
+pub use crate::route::flush_routes;
+pub use crate::route::get_routes;
+pub use crate::route::set_default_route;
+pub use crate::address::get_addresses;
+pub use crate::address::add_address;

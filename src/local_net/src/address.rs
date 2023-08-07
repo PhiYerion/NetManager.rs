@@ -2,7 +2,9 @@ use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr};
 use rtnetlink::{new_connection, IpVersion};
 use futures::TryStreamExt;
+use net_route::RouteChange::Add;
 use netlink_packet_route::{AddressMessage, RouteMessage};
+use netlink_packet_route::address::Nla::Address;
 use rtnetlink::Error::RequestFailed;
 
 pub async fn get_addresses() -> Result<Vec<AddressMessage>, Box<dyn std::error::Error>> {
@@ -19,14 +21,31 @@ pub async fn get_addresses() -> Result<Vec<AddressMessage>, Box<dyn std::error::
     Ok(addresses_vec)
 }
 
-pub async fn add_address(interface: u32, address: IpAddr, prefix_len: u8) -> Result<(), Box<dyn Error>> {
+pub async fn add_address(interface: u32, address: IpAddr, prefix_len: u8) -> Result<(), Box<dyn std::error::Error>> {
     let (connection, handle, _) = new_connection()?;
     tokio::spawn(connection);
 
     let request = handle.address().add(interface, address, prefix_len);
 
-    match request.execute().await {
-        Ok(_) => Ok(()),
-        Err(e) => Err(Box::new(e))
+    request.execute().await?;
+
+    // Validate:
+    for res_addr in get_addresses().await? {
+
+        match address {
+            IpAddr::V4(v4) => {
+                if res_addr.nlas.contains(&Address(v4.octets().to_vec())) {
+                    return Ok(());
+                }
+            }
+            IpAddr::V6(v6) => {
+                if res_addr.nlas.contains(&Address(v6.octets().to_vec())) {
+                    return Ok(());
+                }
+            }
+        }
+
     }
+
+    Err(Box::new(RequestFailed))
 }
