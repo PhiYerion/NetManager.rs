@@ -1,12 +1,18 @@
 use std::io::Error;
 use std::net::Ipv4Addr;
 use std::process::Command;
-use libc::{AF_INET, c_int, sa_family_t, sockaddr};
+use libc::{AF_INET, c_int, RTMSG_DELROUTE, sa_family_t, sockaddr};
 use netdevice::{set_address, set_destination};
 use net_route::{Route, Handle};
 use pnet::datalink;
 use std::io;
-
+use default_net::interface::InterfaceType::Ethernet;
+use netlink_packet_core::NetlinkSerializable;
+use netlink_packet_route::{RouteFlags, RouteHeader, RouteMessage, rtnl::link::nlas::Nla, RtnlMessage};
+use netlink_packet_route::RtnlMessage::DelRoute;
+use netlink_sys::{protocols::NETLINK_ROUTE, Socket, SocketAddr, TokioSocket};
+use tokio::net::UnixDatagram;
+use netlink_sys::AsyncSocket;
 
 macro_rules! cmd {
     ($name:literal, $command:expr) => {{

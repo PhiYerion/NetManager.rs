@@ -7,8 +7,16 @@ edition = "2021"
 
 [dependencies]
 default-net = "0.16.2"
+futures = "0.3.28"
 libc = "0.2.147"
 net-route = "0.2.5"
 netdevice = "0.1.1"
+netlink-packet-core = "0.7.0"
+netlink-packet-route = "0.17.0"
+netlink-proto = "0.11.2"
+netlink-sys = "0.8.5"
+nix = "0.26.2"
 pnet = "0.34.0"
+rtnetlink = "0.13.1"
+tokio = { version = "1.29.1", features = ["full"] }
 
