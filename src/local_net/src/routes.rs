@@ -1,9 +1,8 @@
 use std::net::Ipv4Addr;
-use rtnetlink::{new_connection, Error, Handle, IpVersion};
-use std::net::IpAddr;
-use tokio::runtime::Runtime;
+use rtnetlink::{new_connection, IpVersion};
 use futures::TryStreamExt;
 use netlink_packet_route::RouteMessage;
+use rtnetlink::Error::RequestFailed;
 
 pub async fn get_routes() -> Result<Vec<RouteMessage>, Box<dyn std::error::Error>> {
     let (connection, handle, _) = new_connection()?;
@@ -40,7 +39,7 @@ pub async fn set_default_route(interface: u32, gateway: Ipv4Addr) -> Result<(), 
     Ok(())
 }
 
-pub async fn flush_route(address_family: u8, interface_index: u32) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn flush_routes() -> Result<(), Box<dyn std::error::Error>> {
     let (connection, handle, _) = new_connection().unwrap();
     tokio::spawn(connection);
 
@@ -51,5 +50,40 @@ pub async fn flush_route(address_family: u8, interface_index: u32) -> Result<(),
         handle.route().del(route_message).execute().await?;
     };
 
-    Ok(())
+    // Verify and return:
+    match get_routes().await?.len() {
+            0 => Ok(()),
+            _ => Err(Box::new(RequestFailed))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use netlink_packet_route::route::Nla::{Gateway, Oif};
+    use super::*;
+
+    #[tokio::test]
+    async fn no_set_default_route_runtime_error() {
+        let gateway = Ipv4Addr::new(192,168,1,1);
+
+        flush_routes().await.unwrap();
+        assert!(get_routes().await.unwrap().len() == 0);
+
+        // There should be a '2' interface
+        set_default_route(2, gateway).await.unwrap();
+
+        let mut found_route = false;
+        for route in get_routes().await.unwrap() {
+            if route.header.table == 254
+                && route.header.address_family == 2
+                && route.nlas.contains(&Gateway(gateway.octets().to_vec()))
+                && route.nlas.contains(&Oif(2))
+            {
+                found_route = true;
+                break;
+            }
+        }
+
+        assert!(found_route);
+    }
 }

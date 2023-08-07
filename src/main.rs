@@ -5,15 +5,15 @@ mod user_interface;
 
 use std::error::Error;
 use std::io::Write;
+use std::net::Ipv4Addr;
 use std::str::FromStr;
 use std::time::Duration;
 use clap::Parser;
 use libc::AF_INET;
 use pnet::util::Octets;
 
-use local_net::{down, flush_route, get_routes, up};
+use local_net::{down, flush_routes, get_routes, set_default_route, up};
 use local_net::get_interface_names;
-use local_net::set_route;
 use crate::send_dhcp::{get_network};
 use crate::user_interface::{Args, cli_get_device_addr, InlineArgs, interactive_cli};
 
