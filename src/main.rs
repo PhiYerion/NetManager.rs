@@ -11,12 +11,11 @@ use clap::Parser;
 use libc::AF_INET;
 use pnet::util::Octets;
 
-use local_net::{down, get_routes, get_routes_rt, up};
+use local_net::{down, flush_route, get_routes, up};
 use local_net::get_interface_names;
 use local_net::set_route;
 use crate::send_dhcp::{get_network};
 use crate::user_interface::{Args, cli_get_device_addr, InlineArgs, interactive_cli};
-use local_net::flush_route;
 
 #[tokio::main]
 async fn main() {
@@ -59,6 +58,6 @@ async fn main() {
     //     dbg!(&args.interface, &network.get_gateway());
     //     std::thread::sleep(Duration::from_secs(1));
     // }
-    let a = get_routes_rt().await;
+    let a = get_routes().await;
     print!("{:?}", a);
 }

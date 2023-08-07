@@ -10,4 +10,3 @@ pub use crate::set_net::{up, down};
 pub use crate::set_default_route::set_route;
 pub use crate::kernel_req::flush_route;
 pub use crate::kernel_req::get_routes;
-pub use crate::kernel_req::get_routes_rt;
