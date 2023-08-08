@@ -1,9 +1,7 @@
-use std::error::Error;
-use std::net::{IpAddr, Ipv4Addr};
-use rtnetlink::{new_connection, IpVersion};
+use std::net::{IpAddr};
+use rtnetlink::{new_connection};
 use futures::TryStreamExt;
-use net_route::RouteChange::Add;
-use netlink_packet_route::{AddressMessage, RouteMessage};
+use netlink_packet_route::{AddressMessage};
 use netlink_packet_route::address::Nla::Address;
 use rtnetlink::Error::RequestFailed;
 
