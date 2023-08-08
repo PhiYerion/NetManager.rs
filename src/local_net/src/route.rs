@@ -1,13 +1,10 @@
 use std::net::Ipv4Addr;
-use rtnetlink::{new_connection, IpVersion};
+use rtnetlink::{new_connection, IpVersion, Handle};
 use futures::TryStreamExt;
 use netlink_packet_route::RouteMessage;
 use rtnetlink::Error::RequestFailed;
 
-pub async fn get_routes() -> Result<Vec<RouteMessage>, Box<dyn std::error::Error>> {
-    let (connection, handle, _) = new_connection()?;
-    tokio::spawn(connection);
-
+pub async fn get_routes(handle: &Handle) -> Result<Vec<RouteMessage>, Box<dyn std::error::Error>> {
     let mut routes = handle.route().get(IpVersion::V4).execute();
     let mut route_message_vec = Vec::new();
 
@@ -19,10 +16,7 @@ pub async fn get_routes() -> Result<Vec<RouteMessage>, Box<dyn std::error::Error
 }
 
 
-pub async fn set_default_route(interface: u32, gateway: Ipv4Addr) -> Result<(), Box<dyn std::error::Error>> {
-    let (connection, handle, _) = new_connection()?;
-    tokio::spawn(connection);
-
+pub async fn set_default_route(handle: &Handle, interface: u32, gateway: Ipv4Addr) -> Result<(), Box<dyn std::error::Error>> {
     let mut request = handle.route().add().v4().replace();
 
     // Set variables:
@@ -39,10 +33,7 @@ pub async fn set_default_route(interface: u32, gateway: Ipv4Addr) -> Result<(), 
     Ok(())
 }
 
-pub async fn flush_routes() -> Result<(), Box<dyn std::error::Error>> {
-    let (connection, handle, _) = new_connection().unwrap();
-    tokio::spawn(connection);
-
+pub async fn flush_routes(handle: &Handle) -> Result<(), Box<dyn std::error::Error>> {
     let mut routes = handle.route().get(IpVersion::V4).execute();
 
     while let Some(route_message) = routes.try_next().await? {
@@ -51,7 +42,7 @@ pub async fn flush_routes() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Verify and return:
-    match get_routes().await?.len() {
+    match get_routes(handle).await?.len() {
             0 => Ok(()),
             _ => Err(Box::new(RequestFailed))
     }

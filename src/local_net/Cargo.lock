@@ -232,6 +232,7 @@ dependencies = [
  "default-net",
  "futures",
  "netlink-packet-route",
+ "netlink-proto",
  "rtnetlink",
  "tokio",
 ]
