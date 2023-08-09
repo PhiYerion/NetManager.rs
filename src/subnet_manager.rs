@@ -4,7 +4,7 @@ use std::net::Ipv4Addr;
 use pnet::util::MacAddr;
 use default_net::interface::get_interfaces;
 
-struct Virtualiface {
+struct VirtualIface {
     id: u32,
     name: String,
     mac: MacAddr,
@@ -14,7 +14,7 @@ struct Virtualiface {
 }
 
 struct SubnetManager {
-    virtual_ifaces: Vec<Virtualiface>
+    virtual_ifaces: Vec<VirtualIface>
 }
 
 enum IfaceIdentifier {
@@ -38,7 +38,7 @@ impl SubnetManager {
             return Err(Error::from(AlreadyExists));
         }
 
-        self.virtual_ifaces.push(Virtualiface {
+        self.virtual_ifaces.push(VirtualIface {
             id,
             name,
             mac,
@@ -53,7 +53,7 @@ impl SubnetManager {
     pub fn get_iface_as_mut(
         &mut self,
         iface_identifier: &IfaceIdentifier
-    ) -> Result<&mut Virtualiface, Error> {
+    ) -> Result<&mut VirtualIface, Error> {
         Ok(match iface_identifier {
             IfaceIdentifier::ID(id) =>
                 self.virtual_ifaces
@@ -72,7 +72,7 @@ impl SubnetManager {
     pub fn get_iface(
         &mut self,
         iface_identifier: &IfaceIdentifier
-    ) -> Result<&Virtualiface, Error> {
+    ) -> Result<&VirtualIface, Error> {
         Ok(match iface_identifier {
             IfaceIdentifier::ID(id) =>
                 self.virtual_ifaces
@@ -211,6 +211,8 @@ impl SubnetManager {
         }
     }
 }
+
+// Other util:
 
 pub fn iface_id_name_pair_matches(id: u32, name: String) -> bool {
     get_interfaces()

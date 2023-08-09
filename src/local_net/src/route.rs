@@ -17,16 +17,17 @@ pub async fn get_routes(handle: &Handle) -> Result<Vec<RouteMessage>, Box<dyn st
 
 
 pub async fn set_default_route(handle: &Handle, interface: u32, gateway: Ipv4Addr) -> Result<(), Box<dyn std::error::Error>> {
-    let mut request = handle.route().add().v4().replace();
-
-    // Set variables:
-    request = request.output_interface(interface);
-    request = request.gateway(gateway);
-
-    // Destination for default route:
-    request = request.destination_prefix(
-        Ipv4Addr::new(0,0,0,0),
-        0);
+    let request = handle
+        // Base route request:
+        .route().add().v4().replace()
+        // Gateway and interface:
+        .output_interface(interface)
+        .gateway(gateway)
+        // Kernel address:
+        .destination_prefix(
+            Ipv4Addr::new(0,0,0,0),
+            0
+        );
 
     request.execute().await?;
 
@@ -56,15 +57,16 @@ mod tests {
     #[tokio::test]
     async fn no_set_default_route_runtime_error() {
         let gateway = Ipv4Addr::new(192,168,1,1);
+        let (connection, handle, _) = new_connection().unwrap();
 
-        flush_routes().await.unwrap();
-        assert!(get_routes().await.unwrap().len() == 0);
+        flush_routes(&handle).await.unwrap();
+        assert!(get_routes(&handle).await.unwrap().len() == 0);
 
         // There should be a '2' interface
-        set_default_route(2, gateway).await.unwrap();
+        set_default_route(&handle, 2, gateway).await.unwrap();
 
         let mut found_route = false;
-        for route in get_routes().await.unwrap() {
+        for route in get_routes(&handle).await.unwrap() {
             if route.header.table == 254
                 && route.header.address_family == 2
                 && route.nlas.contains(&Gateway(gateway.octets().to_vec()))
