@@ -1,15 +1,22 @@
 // Build the DHCP Discover packet
 use rand::Rng;
-use std::net::{Ipv4Addr};
+use std::net::Ipv4Addr;
 use pnet::datalink::NetworkInterface;
-use pnet::packet::dhcp::DhcpHardwareTypes::Ethernet;
-use pnet::packet::dhcp::{Dhcp, MutableDhcpPacket, DhcpOperation};
-use pnet::packet::ethernet::{EtherTypes, MutableEthernetPacket};
-use pnet::packet::ip::IpNextHeaderProtocols;
-use pnet::packet::ipv4::MutableIpv4Packet;
-use pnet::packet::Packet;
-use pnet::packet::udp::MutableUdpPacket;
 use pnet::util::MacAddr;
+use pnet::packet::{
+    Packet,
+    ip::IpNextHeaderProtocols,
+    ipv4::MutableIpv4Packet,
+    udp::MutableUdpPacket,
+    dhcp::{
+        Dhcp,
+        MutableDhcpPacket,
+        DhcpOperation,
+        DhcpHardwareTypes::Ethernet
+    },
+    ethernet::{EtherTypes, MutableEthernetPacket},
+
+};
 
 pub const DHCP_PACKET_LEN: usize = 314;
 
