@@ -6,3 +6,5 @@ This is a network manager for Rust. It is supposed to fill a similar role to Net
 ## Planned features
 Find conflicting IP addresses and notify the user of those conflicts.
 Test configurations in a container with the host network to make sure that it works
+
+Integrate https://maclookup.app/downloads/json-database into mac setter
