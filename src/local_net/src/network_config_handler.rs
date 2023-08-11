@@ -1,9 +1,10 @@
 use std::io;
-use std::net::IpAddr;
-use netlink_packet_route::{AddressMessage, RtnlMessage};
+use std::net::{IpAddr, Ipv4Addr};
+use netlink_packet_route::{RtnlMessage};
 use netlink_proto::Connection;
-use rtnetlink::{Error, Handle, new_connection, new_connection_with_socket};
-use crate::add_address;
+use rtnetlink::{Handle, new_connection};
+use std::io::Error;
+use crate::{add_address, set_default_route};
 
 pub struct NetworkConfigHandler {
     conn: Connection<RtnlMessage>,
@@ -11,13 +12,16 @@ pub struct NetworkConfigHandler {
 }
 
 impl NetworkConfigHandler {
-    pub fn new() -> NetworkConfigHandler {
-        let (conn, handler, _) = new_connection().unwrap();
+    pub fn new() -> Result<NetworkConfigHandler, Error> {
+        let (conn, handler, _) = match new_connection() {
+            Ok(connection) => connection,
+            Err(_) => return Err(Error::from(io::Error::new(io::ErrorKind::Other, "Netlink error")))
+        };
 
-        NetworkConfigHandler {
+        Ok(NetworkConfigHandler {
             conn,
             handler,
-        }
+        })
     }
 
     fn reset_connection(&mut self) -> Result<(), std::io::Error> {
@@ -36,7 +40,20 @@ impl NetworkConfigHandler {
         Ok(())
     }
 
-    pub async fn add_address(&self, interface: u32, address: IpAddr, prefix_len: u8) -> Result<(), Box<dyn std::error::Error>> {
-        add_address(&self.handler, interface, address, prefix_len).await
+    pub async fn add_address(&self, interface: u32, address: IpAddr, prefix_len: u8) -> Result<(), std::io::Error> {
+        let response = add_address(&self.handler, interface, address, prefix_len).await;
+        match response {
+            Ok(_) => Ok(()),
+            Err(_) => Err(std::io::Error::new(std::io::ErrorKind::Other, "Netlink error"))
+        }
     }
+
+    pub async fn set_default_route(&self, interface: u32,  gateway: Ipv4Addr) -> Result<(), std::io::Error> {
+        let response = set_default_route(&self.handler, interface, gateway).await;
+        match response {
+            Ok(_) => Ok(()),
+            Err(_) => Err(std::io::Error::new(std::io::ErrorKind::Other, "Netlink error"))
+        }
+    }
+
 }
