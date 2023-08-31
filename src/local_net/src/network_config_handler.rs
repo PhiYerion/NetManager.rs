@@ -7,7 +7,8 @@ use std::io::Error;
 use crate::{add_address, set_default_route, flush_addresses};
 
 pub struct NetworkConfigHandler {
-    conn: Connection<RtnlMessage>,
+    conn: Connection<RtnlMessage>,                          // This is required to keep the
+    // connection alive
     handler: Handle
 }
 
