@@ -4,7 +4,7 @@ use netlink_packet_route::{RtnlMessage};
 use netlink_proto::Connection;
 use rtnetlink::{Handle, new_connection};
 use std::io::Error;
-use crate::{add_address, set_default_route};
+use crate::{add_address, set_default_route, flush_addresses};
 
 pub struct NetworkConfigHandler {
     conn: Connection<RtnlMessage>,
@@ -30,7 +30,7 @@ impl NetworkConfigHandler {
         Ok(())
     }
 
-    fn handle_rt_error(&mut self, callback: fn()) -> Result<(), std::io::Error> {
+    fn handle_rt_error(&mut self) -> Result<(), std::io::Error> {
         self.reset_connection()?;
 
         // later have configs in this class (or something else)
@@ -38,6 +38,10 @@ impl NetworkConfigHandler {
         // all of the network kernel config depending on priority
         // of the request
         Ok(())
+    }
+
+    pub async fn flush_addresses(&self, interface: u32) {
+        let response = flush_addresses(&self.handler);
     }
 
     pub async fn add_address(&self, interface: u32, address: IpAddr, prefix_len: u8) -> Result<(), std::io::Error> {

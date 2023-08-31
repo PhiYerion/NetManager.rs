@@ -44,8 +44,8 @@ async fn main() {
     let network = get_network(&args.interface).unwrap();
     dbg!(&network);
 
-    down(&args.interface);
-    up(&args.interface, client_addr).await.unwrap();
+    //down(&args.interface);
+    //up(&args.interface, client_addr).await.unwrap();
 
     loop {
         match set_route(&args.interface, network.get_gateway().unwrap()) {
