@@ -1,10 +1,10 @@
+use crate::mac::set_mac;
+use default_net::interface::get_interfaces;
+use local_net::NetworkConfigHandler;
+use pnet::util::MacAddr;
 use std::io::Error;
 use std::io::ErrorKind::{AlreadyExists, NotFound};
 use std::net::{IpAddr, Ipv4Addr};
-use pnet::util::MacAddr;
-use default_net::interface::get_interfaces;
-use local_net::NetworkConfigHandler;
-use crate::mac::set_mac;
 
 struct VirtualIface {
     id: u32,
@@ -17,12 +17,12 @@ struct VirtualIface {
 
 struct SubnetManager {
     virtual_ifaces: Vec<VirtualIface>,
-    config_handler: NetworkConfigHandler
+    config_handler: NetworkConfigHandler,
 }
 
 enum IfaceIdentifier {
     ID(u32),
-    Name(String)
+    Name(String),
 }
 
 // -- misc --
@@ -30,20 +30,22 @@ impl SubnetManager {
     pub fn new() -> Result<SubnetManager, Error> {
         Ok(SubnetManager {
             virtual_ifaces: Vec::new(),
-            config_handler: NetworkConfigHandler::new()?
+            config_handler: NetworkConfigHandler::new()?,
         })
     }
 
-    pub async fn  flush_to_system(&self, iface_identifier: &IfaceIdentifier) -> Result<(), Error> {
+    pub async fn flush_to_system(&self, iface_identifier: &IfaceIdentifier) -> Result<(), Error> {
         let iface = self.get_iface(iface_identifier)?;
 
-
         set_mac(&iface.name, iface.mac);
-        self.config_handler.add_address(iface.id, IpAddr::from(iface.ipv4), iface.subnet_mask).await?;
-        self.config_handler.set_default_route(iface.id, iface.gateway).await?;
+        self.config_handler
+            .add_address(iface.id, IpAddr::from(iface.ipv4), iface.subnet_mask)
+            .await?;
+        self.config_handler
+            .set_default_route(iface.id, iface.gateway)
+            .await?;
 
         Ok(())
-
     }
 }
 
@@ -55,9 +57,8 @@ impl SubnetManager {
         mac: MacAddr,
         subnet_mask: u8,
         ipv4: Ipv4Addr,
-        gateway: Ipv4Addr
+        gateway: Ipv4Addr,
     ) -> Result<(), Error> {
-
         let (id, name) = get_iface_name_id_pair(&iface_identifier)?;
 
         if self.virtual_iface_exists(&iface_identifier) {
@@ -78,41 +79,36 @@ impl SubnetManager {
 
     pub fn get_iface_as_mut(
         &mut self,
-        iface_identifier: &IfaceIdentifier
+        iface_identifier: &IfaceIdentifier,
     ) -> Result<&mut VirtualIface, Error> {
-
         Ok(match iface_identifier {
-            IfaceIdentifier::ID(id) =>
-                self.virtual_ifaces
-                    .iter_mut()
-                    .find(|&iface| iface.id == *id)
-                    .ok_or(NotFound)?,
+            IfaceIdentifier::ID(id) => self
+                .virtual_ifaces
+                .iter_mut()
+                .find(|iface| iface.id == *id)
+                .ok_or(NotFound)?,
 
-            IfaceIdentifier::Name(name) =>
-                self.virtual_ifaces
-                    .iter_mut()
-                    .find(|&iface| iface.name == *name)
-                    .ok_or(NotFound)?
+            IfaceIdentifier::Name(name) => self
+                .virtual_ifaces
+                .iter_mut()
+                .find(|iface| iface.name == *name)
+                .ok_or(NotFound)?,
         })
     }
 
-    pub fn get_iface(
-        &self,
-        iface_identifier: &IfaceIdentifier
-    ) -> Result<&VirtualIface, Error> {
-
+    pub fn get_iface(&self, iface_identifier: &IfaceIdentifier) -> Result<&VirtualIface, Error> {
         Ok(match iface_identifier {
-            IfaceIdentifier::ID(id) =>
-                self.virtual_ifaces
-                    .iter()
-                    .find(|&iface| iface.id == *id)
-                    .ok_or(NotFound)?,
+            IfaceIdentifier::ID(id) => self
+                .virtual_ifaces
+                .iter()
+                .find(|&iface| iface.id == *id)
+                .ok_or(NotFound)?,
 
-            IfaceIdentifier::Name(name) =>
-                self.virtual_ifaces
-                    .iter()
-                    .find(|&iface| iface.name == *name)
-                    .ok_or(NotFound)?
+            IfaceIdentifier::Name(name) => self
+                .virtual_ifaces
+                .iter()
+                .find(|&iface| iface.name == *name)
+                .ok_or(NotFound)?,
         })
     }
 }
@@ -122,9 +118,8 @@ impl SubnetManager {
     pub fn set_iface_id(
         &mut self,
         iface_identifier: &IfaceIdentifier,
-        id: u32
+        id: u32,
     ) -> Result<(), Error> {
-
         if self.virtual_iface_exists(&iface_identifier) {
             return Err(Error::from(AlreadyExists));
         }
@@ -141,9 +136,8 @@ impl SubnetManager {
     pub fn set_iface_name(
         &mut self,
         iface_identifier: &IfaceIdentifier,
-        name: String
+        name: String,
     ) -> Result<(), Error> {
-
         if self.virtual_iface_exists(&iface_identifier) {
             return Err(Error::from(AlreadyExists));
         }
@@ -158,9 +152,8 @@ impl SubnetManager {
     pub fn set_iface_mac(
         &mut self,
         iface_identifier: &IfaceIdentifier,
-        mac: MacAddr
+        mac: MacAddr,
     ) -> Result<(), Error> {
-
         let iface = self.get_iface_as_mut(iface_identifier)?;
         iface.mac = mac;
         Ok(())
@@ -169,9 +162,8 @@ impl SubnetManager {
     pub fn set_iface_subnet_mask(
         &mut self,
         iface_identifier: &IfaceIdentifier,
-        subnet_mask: u8
+        subnet_mask: u8,
     ) -> Result<(), Error> {
-
         let iface = self.get_iface_as_mut(iface_identifier)?;
         iface.subnet_mask = subnet_mask;
         Ok(())
@@ -180,9 +172,8 @@ impl SubnetManager {
     pub fn set_iface_ipv4(
         &mut self,
         iface_identifier: &IfaceIdentifier,
-        ipv4: Ipv4Addr
+        ipv4: Ipv4Addr,
     ) -> Result<(), Error> {
-
         let iface = self.get_iface_as_mut(iface_identifier)?;
         iface.ipv4 = ipv4;
         Ok(())
@@ -191,9 +182,8 @@ impl SubnetManager {
     pub fn set_iface_gateway(
         &mut self,
         iface_identifier: &IfaceIdentifier,
-        gateway: Ipv4Addr
+        gateway: Ipv4Addr,
     ) -> Result<(), Error> {
-
         let iface = self.get_iface_as_mut(iface_identifier)?;
         iface.gateway = gateway;
         Ok(())
@@ -202,23 +192,19 @@ impl SubnetManager {
 
 // -- v-iface deleter --
 impl SubnetManager {
-    pub fn delete_iface(
-        &mut self,
-        iface_identifier: &IfaceIdentifier
-    ) -> Result<(), Error> {
-
+    pub fn delete_iface(&mut self, iface_identifier: &IfaceIdentifier) -> Result<(), Error> {
         let index = match iface_identifier {
-            IfaceIdentifier::ID(id) =>
-                self.virtual_ifaces
-                    .iter()
-                    .position(|iface| iface.id == *id)
-                    .ok_or(NotFound)?,
+            IfaceIdentifier::ID(id) => self
+                .virtual_ifaces
+                .iter()
+                .position(|iface| iface.id == *id)
+                .ok_or(NotFound)?,
 
-            IfaceIdentifier::Name(name) =>
-                self.virtual_ifaces
-                    .iter()
-                    .position(|iface| iface.name == *name)
-                    .ok_or(NotFound)?
+            IfaceIdentifier::Name(name) => self
+                .virtual_ifaces
+                .iter()
+                .position(|iface| iface.name == *name)
+                .ok_or(NotFound)?,
         };
 
         self.virtual_ifaces.remove(index);
@@ -228,22 +214,19 @@ impl SubnetManager {
 
 // -- Util --
 impl SubnetManager {
-    fn virtual_iface_exists(
-        &self,
-        iface_identifier: &IfaceIdentifier
-    ) -> bool {
-
+    fn virtual_iface_exists(&self, iface_identifier: &IfaceIdentifier) -> bool {
         match iface_identifier {
-            IfaceIdentifier::ID(id) =>
-                self.virtual_ifaces.iter()
-                    .find(|&iface| iface.id == *id)
-                    .is_some(),
+            IfaceIdentifier::ID(id) => self
+                .virtual_ifaces
+                .iter()
+                .find(|&iface| iface.id == *id)
+                .is_some(),
 
-            IfaceIdentifier::Name(name) =>
-                self.virtual_ifaces
-                    .iter()
-                    .find(|&iface| iface.name == *name)
-                    .is_some()
+            IfaceIdentifier::Name(name) => self
+                .virtual_ifaces
+                .iter()
+                .find(|&iface| iface.name == *name)
+                .is_some(),
         }
     }
 }
@@ -257,19 +240,17 @@ pub fn iface_id_name_pair_matches(id: u32, name: String) -> bool {
         .is_some()
 }
 
-pub fn get_iface_name_id_pair(
-    iface_identifier: &IfaceIdentifier
-) -> Result<(u32, String), Error> {
-
+pub fn get_iface_name_id_pair(iface_identifier: &IfaceIdentifier) -> Result<(u32, String), Error> {
     Ok(match iface_identifier {
         IfaceIdentifier::Name(name) => (
             // ID:
             get_interfaces()
                 .iter()
                 .find(|&iface| iface.name == *name)
-                .ok_or(NotFound)?.index,
+                .ok_or(NotFound)?
+                .index,
             // Name:
-            name.clone()
+            name.clone(),
         ),
         IfaceIdentifier::ID(id) => (
             // ID:
@@ -278,7 +259,10 @@ pub fn get_iface_name_id_pair(
             get_interfaces()
                 .iter()
                 .find(|&iface| iface.index == *id)
-                .ok_or(NotFound)?.name.clone()
-        )
+                .ok_or(NotFound)?
+                .name
+                .clone(),
+        ),
     })
 }
+
