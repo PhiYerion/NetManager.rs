@@ -5,7 +5,6 @@ mod subnet_manager;
 mod user_interface;
 
 use clap::Parser;
-use std::time::Duration;
 
 use crate::send_dhcp::get_network;
 use crate::user_interface::{cli_get_device_addr, interactive_cli, Args, InlineArgs};
@@ -42,9 +41,4 @@ async fn main() {
 
     //down(&args.interface);
     //up(&args.interface, client_addr).await.unwrap();
-
-    loop {
-        dbg!(&args.interface, &network.get_gateway());
-        std::thread::sleep(Duration::from_secs(1));
-    }
 }
