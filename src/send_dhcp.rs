@@ -1,18 +1,17 @@
 use std::error::Error;
 use std::fmt;
 
-use std::net::{Ipv4Addr};
+use std::net::Ipv4Addr;
 
-use pnet::datalink::{self, Channel, DataLinkReceiver, NetworkInterface};
-use pnet::packet::{FromPacket, Packet,};
-use pnet::packet::ethernet::{EthernetPacket};
-use pnet::packet::ipv4::{Ipv4Packet};
-use pnet::packet::udp::{UdpPacket};
-use pnet::packet::dhcp::{DhcpPacket, Dhcp, MutableDhcpPacket};
-use pnet::util::{MacAddr};
-use crate::dhcp::{CustDhcp, DhcpOptions};
-use crate::dhcp::DHCP_PACKET_LEN;
+use crate::dhcp::*;
 use crate::mac::get_mac;
+use pnet::datalink::{self, Channel, DataLinkReceiver, NetworkInterface};
+use pnet::packet::dhcp::{Dhcp, DhcpPacket, MutableDhcpPacket};
+use pnet::packet::ethernet::EthernetPacket;
+use pnet::packet::ip::IpNextHeaderProtocols;
+use pnet::packet::ipv4::Ipv4Packet;
+use pnet::packet::udp::UdpPacket;
+use pnet::packet::{FromPacket, Packet};
 
 #[derive(Debug)]
 enum DhcpError {
@@ -35,7 +34,7 @@ impl fmt::Display for DhcpError {
 
 #[derive(Debug)]
 pub struct Network {
-    options: [Option<Ipv4Addr>; 3]
+    options: [Option<Ipv4Addr>; 3],
 }
 
 impl Network {
@@ -50,30 +49,57 @@ impl Network {
     }
 }
 
-
 pub fn get_network<'a>(interface_name: &String) -> Result<Network, Box<dyn Error>> {
     let mac = get_mac(interface_name);
     let interface = match get_interface(interface_name) {
         Some(r) => r,
-        None => return Err(Box::new(DhcpError::Specific("Unable to find interface".to_string())))
+        None => {
+            return Err(Box::new(DhcpError::Specific(
+                "Unable to find interface".to_string(),
+            )))
+        }
     };
     dbg!("Got interface {}", &interface.name);
 
-    let dhcp_wrapper = CustDhcp::new(mac, DhcpOptions::Slim)?;
-    let xid = dhcp_wrapper.packet.xid;
+    use dhcproto::{v4, Encodable, Encoder};
+    // construct a new Message
+    let mut msg = v4::Message::default();
+    msg.set_flags(v4::Flags::default().set_broadcast()) // set broadcast to true
+        .set_chaddr(&mac) // set chaddr
+        .opts_mut()
+        .insert(v4::DhcpOption::MessageType(v4::MessageType::Discover)); // set msg type
+    msg.opts_mut()
+        .insert(v4::DhcpOption::ParameterRequestList(vec![
+            v4::OptionCode::SubnetMask,
+            v4::OptionCode::Router,
+            v4::OptionCode::DomainNameServer,
+            v4::OptionCode::DomainName,
+        ]));
+    msg.opts_mut()
+        // why would this ever be a vec
+        .insert(v4::DhcpOption::ClientIdentifier(mac.to_vec()));
+
     dbg!("Built dhcp_wrapper");
 
-    let eframe = &mut dhcp_wrapper.build_dhcp_to_layer2(&interface);
+    let mut buf = Vec::<u8>::new();
+    //
+    let mut e = Encoder::new(&mut buf);
+    msg.encode(&mut e).unwrap();
+    let eframe = &mut build_dhcp_to_layer2(buf, &interface);
     dbg!("Built ethernet frame");
 
     let res = match get_dhcp_offer(
-        xid,
+        msg.xid(),
         send_packet(&interface, eframe.to_immutable()),
-        mac
-        ) {
-            Some(r) => r,
-            None => return Err(Box::new(DhcpError::Specific("Unable create get dhcp response".to_string())))
-        };
+        mac,
+    ) {
+        Some(r) => r,
+        None => {
+            return Err(Box::new(DhcpError::Specific(
+                "Unable create get dhcp response".to_string(),
+            )))
+        }
+    };
 
     dbg!("Got dhcp offer");
 
@@ -90,7 +116,7 @@ fn get_interface(interface_name: &str) -> Option<NetworkInterface> {
         .find(|iface| iface.name == interface_name)
 }
 
-fn send_packet (interface: &NetworkInterface, packet: EthernetPacket) -> Box<dyn DataLinkReceiver> {
+fn send_packet(interface: &NetworkInterface, packet: EthernetPacket) -> Box<dyn DataLinkReceiver> {
     // Send the packet
     let (mut tx, rx) = match datalink::channel(&interface, Default::default()) {
         Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
@@ -103,67 +129,69 @@ fn send_packet (interface: &NetworkInterface, packet: EthernetPacket) -> Box<dyn
     rx
 }
 
-fn get_dhcp_offer<'a>(
-    xid: u32,
-    mut rx: Box<dyn DataLinkReceiver>,
-    mac: MacAddr,
-) -> Option<Dhcp> {
-
+fn get_dhcp_offer(xid: u32, mut rx: Box<dyn DataLinkReceiver>, mac: [u8; 14]) -> Option<Dhcp> {
     while let Ok(base_packet) = rx.next() {
         // Process the received packet
         let ethernet_packet = match EthernetPacket::new(base_packet) {
             Some(packet) => {
                 dbg!(&packet);
                 packet
-            },
+            }
             None => continue, // Skip packets that are not Ethernet
         };
 
-        if ethernet_packet.get_destination() != mac {
-            continue; // Skip packets with a different MAC address
-        }
-
-        let udp_packet = match UdpPacket::new(ethernet_packet.payload()) {
+        let ipv4_packet = match Ipv4Packet::new(ethernet_packet.payload()) {
             Some(packet) => {
                 dbg!(&packet);
                 packet
-            },
-            None => continue, // Skip packets that are not UDP
-        };
-
-        let ipv4_packet = match Ipv4Packet::new(udp_packet.payload()) {
-            Some(packet) => {
-                dbg!(&packet);
-                packet
-            },
+            }
             None => continue, // Skip packets that are not IPv4
         };
 
-        let dhcp_packet = match DhcpPacket::new(ipv4_packet.payload()) {
+        if ipv4_packet.get_next_level_protocol() != IpNextHeaderProtocols::Udp {
+            continue;
+        }
+
+        let udp_packet = match UdpPacket::new(ipv4_packet.payload()) {
             Some(packet) => {
+                dbg!(&packet);
                 packet
-            },
+            }
+            None => continue, // Skip packets that are not UDP
+        };
+
+        dbg!(udp_packet.get_destination());
+        if udp_packet.get_destination() != 68 {
+            continue;
+        }
+
+        let dhcp_packet = match DhcpPacket::new(udp_packet.payload()) {
+            Some(packet) => packet,
             None => continue, // Skip packets that are not DHCP
         };
 
         dbg!("Got a DHCP packet");
+        println!("{} {:#?}", ethernet_packet.get_destination(), mac);
+
         if dhcp_packet.get_xid() == xid {
             return Some(dhcp_packet.from_packet());
         };
-        dbg!("Incoming DHCP packet has wrong xid", dhcp_packet.get_xid(), xid);
+        dbg!("Incoming DHCP packet has wrong xid", xid);
     }
     None
 }
 
-fn ipv4_from_u8_array (array: &[u8; 4]) -> Ipv4Addr {
+fn ipv4_from_u8_array(array: &[u8; 4]) -> Ipv4Addr {
     Ipv4Addr::new(array[0], array[1], array[2], array[3])
 }
 
-fn format_dhcp_offer (dhcp_offer_packet: DhcpPacket) -> Network {
+fn format_dhcp_offer(dhcp_offer_packet: DhcpPacket) -> Network {
     let dhcp_offer = dhcp_offer_packet.from_packet();
     let mut index = 0;
     let options_data = dhcp_offer.options;
-    let mut net: Network = Network { options: [None, None, None] };
+    let mut net: Network = Network {
+        options: [None, None, None],
+    };
     while index < options_data.len() - 1 {
         let code = options_data[index];
         if code == 0x63 {
@@ -171,7 +199,7 @@ fn format_dhcp_offer (dhcp_offer_packet: DhcpPacket) -> Network {
             continue;
         }
 
-        use arrayref::{array_ref};
+        use arrayref::array_ref;
         if code == 0x01 {
             let start = index + 2;
             let netmask = array_ref!(options_data, start, 4);

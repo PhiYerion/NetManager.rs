@@ -37,9 +37,10 @@ pub fn set_mac (interface: &String, mac: MacAddr) {
     set_hardware(new_socket().unwrap(), interface, sock).unwrap();
 }
 
-pub fn get_mac (interface: &String) -> MacAddr {
+pub fn get_mac (interface: &String) -> [u8; 14] {
     let res = get_hardware(new_socket().unwrap(), interface).unwrap();
-    let raw_mac = res.sa_data;
-    MacAddr::new(raw_mac[0] as u8, raw_mac[1] as u8, raw_mac[2] as u8,
-                 raw_mac[3] as u8, raw_mac[4] as u8, raw_mac[5] as u8)
+
+    // i8 -> u8 is very safe. I hope to god the compiler
+    // doesn't actually preform any additional computation.
+    unsafe { std::mem::transmute(res.sa_data) }
 }
