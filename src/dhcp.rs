@@ -1,5 +1,6 @@
 // Build the DHCP Discover packet
 use pnet::datalink::NetworkInterface;
+use pnet::packet::FromPacket;
 use pnet::packet::{
     ethernet::{EtherTypes, MutableEthernetPacket},
     ip::IpNextHeaderProtocols,
@@ -12,6 +13,22 @@ use rand::Rng;
 use std::net::Ipv4Addr;
 
 pub const DHCP_PACKET_LEN: usize = 314;
+
+pub fn remove_trailing_zeros(mut packet: Vec<u8>) -> Vec<u8> {
+    assert!(!packet.is_empty());
+    // This will return the last non-zero byte index
+    let last_nonzero = packet.iter().rposition(|&r| r != 0);
+
+    let padding_start = match last_nonzero {
+        // We don't want to remove the last non-zero byte
+        Some(x) => x + 1,
+        // There should be some non-zero bytes
+        None => panic!("There packet only contains 0s"),
+    };
+
+    packet.truncate(padding_start);
+    packet
+}
 
 pub fn build_dhcp_to_layer2(
     dhcp_packet: Vec<u8>,
@@ -33,7 +50,10 @@ pub fn build_dhcp_to_layer2(
         // Payload
         udp_packet.set_payload(&dhcp_packet);
     }
-    //assert_eq!(comparison_copy, udp_packet.payload());
+    debug_assert_eq!(
+        remove_trailing_zeros(udp_packet.payload().to_vec()),
+        comparison_copy
+    );
 
     // IPv4 packet
     let mut padding2: [u8; DHCP_PACKET_LEN + 28] = [0; DHCP_PACKET_LEN + 28];
