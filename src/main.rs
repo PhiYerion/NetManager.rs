@@ -1,21 +1,18 @@
 mod dhcp;
-mod send_dhcp;
 mod mac;
-mod user_interface;
+mod send_dhcp;
 mod subnet_manager;
+mod user_interface;
 
-use std::error::Error;
-use std::io::Write;
-use std::net::{IpAddr, Ipv4Addr};
-use std::str::FromStr;
-use std::time::Duration;
 use clap::Parser;
-use pnet::util::Octets;
+use std::time::Duration;
 
-use local_net::{add_address, flush_addresses, flush_routes, get_addresses, get_network_interfaces, get_routes, set_default_route};
+use crate::send_dhcp::get_network;
+use crate::user_interface::{cli_get_device_addr, interactive_cli, Args, InlineArgs};
 use local_net::get_interface_names;
-use crate::send_dhcp::{get_network};
-use crate::user_interface::{Args, cli_get_device_addr, InlineArgs, interactive_cli};
+
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 #[tokio::main]
 async fn main() {
@@ -26,17 +23,16 @@ async fn main() {
             let interfaces = get_interface_names();
 
             if !interfaces.contains(&interface) {
-                println!("{} not found. Use one of the following interfaces: {:?}",
-                         interface,
-                         interfaces);
+                println!(
+                    "{} not found. Use one of the following interfaces: {:?}",
+                    interface, interfaces
+                );
                 return;
             }
 
             Args { interface }
         }
-        None => {
-            interactive_cli()
-        }
+        None => interactive_cli(),
     };
 
     let client_addr = cli_get_device_addr(&args.interface);
@@ -48,13 +44,6 @@ async fn main() {
     //up(&args.interface, client_addr).await.unwrap();
 
     loop {
-        match set_route(&args.interface, network.get_gateway().unwrap()) {
-            Ok(_) => break,
-            Err(e) => {
-                dbg!(&e, &args.interface, network.get_gateway());
-            }
-        }
-
         dbg!(&args.interface, &network.get_gateway());
         std::thread::sleep(Duration::from_secs(1));
     }
