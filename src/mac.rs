@@ -16,7 +16,7 @@ pub fn new_socket() -> Result<c_int, Error> {
 
 // This should really have some unit tests, but without a docker
 // container it would be weird.
-pub fn set_mac(interface: &String, mac: MacAddr) {
+pub fn set_mac(interface: &str, mac: MacAddr) {
     let mut old = get_hardware(new_socket().unwrap(), interface)
         .unwrap()
         .sa_data;
@@ -36,7 +36,7 @@ pub fn set_mac(interface: &String, mac: MacAddr) {
     set_hardware(new_socket().unwrap(), interface, sock).unwrap();
 }
 
-pub fn get_mac(interface: &String) -> [u8; 14] {
+pub fn get_mac(interface: &str) -> [u8; 14] {
     let res = get_hardware(new_socket().unwrap(), interface).unwrap();
 
     // i8 -> u8 is very safe. I hope to god the compiler
