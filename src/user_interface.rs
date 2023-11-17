@@ -1,20 +1,20 @@
-use std::{io};
-use std::io::Write;
-use std::net::{Ipv4Addr};
-use std::str::FromStr;
+use crate::send_dhcp::{get_network, Network};
 use clap::Parser;
 use local_net::get_interface_names;
-use crate::send_dhcp::{get_network, Network};
+use std::io;
+use std::io::Write;
+use std::net::Ipv4Addr;
+use std::str::FromStr;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct InlineArgs {
     /// Network interface
-    pub interface: Option<String>
+    pub interface: Option<String>,
 }
 
 pub struct Args {
-    pub interface: String
+    pub interface: String,
 }
 
 pub fn interactive_cli() -> Args {
@@ -22,19 +22,17 @@ pub fn interactive_cli() -> Args {
     let interface_names: Vec<String> = get_interface_names();
 
     while !interface_names.contains(&input) {
-        println!("Choose an interface ({:?})",
-                 interface_names);
+        println!("Choose an interface ({:?})", interface_names);
 
-        io::stdin()
-            .read_line(&mut input);
+        io::stdin().read_line(&mut input);
 
         input = input.trim().to_string();
     }
 
-    Args{ interface: input }
+    Args { interface: input }
 }
 
-pub fn cli_get_device_addr (interface: &String) -> Ipv4Addr {
+pub fn cli_get_device_addr(interface: &String) -> Ipv4Addr {
     // Limits:
     let (lower_limit, upper_limit) = get_subnet_limits(&get_network(interface).unwrap());
     let lower_octets = lower_limit.octets();
@@ -88,7 +86,10 @@ pub fn cli_get_device_addr (interface: &String) -> Ipv4Addr {
             };
             for i in 0..3 {
                 if addr.octets()[i] < lower_octets[i] || addr.octets()[i] > upper_octets[i] {
-                    return Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "Out of range."));
+                    return Err(io::Error::new(
+                        io::ErrorKind::AddrNotAvailable,
+                        "Out of range.",
+                    ));
                 }
             }
             Ok(addr)
@@ -101,8 +102,7 @@ pub fn cli_get_device_addr (interface: &String) -> Ipv4Addr {
                     input = base_octets_str.clone();
                     print!("{}", base_octets_str.trim());
                     io::stdout().flush().unwrap();
-                    io::stdin()
-                        .read_line(&mut input);
+                    io::stdin().read_line(&mut input);
 
                     input = input.trim().to_string();
                 }
@@ -119,20 +119,19 @@ fn get_subnet_limits(network: &Network) -> (Ipv4Addr, Ipv4Addr) {
 
     let octect_pairs = netmask_octets.iter().zip(base_ip_octets.iter());
 
-    let mut lower_limit: [u8; 4] = octect_pairs.clone().map(
-        |(netmask, base_ip)| {
-            base_ip & netmask
-        })
+    let mut lower_limit: [u8; 4] = octect_pairs
+        .clone()
+        .map(|(netmask, base_ip)| base_ip & netmask)
         .collect::<Vec<u8>>()
-        .try_into().unwrap();
+        .try_into()
+        .unwrap();
     lower_limit[3] += 1;
 
-    let mut upper_limit: [u8; 4] = octect_pairs.map(
-        |(netmask, base_ip)| {
-            base_ip | !netmask
-        })
+    let mut upper_limit: [u8; 4] = octect_pairs
+        .map(|(netmask, base_ip)| base_ip | !netmask)
         .collect::<Vec<u8>>()
-        .try_into().unwrap();
+        .try_into()
+        .unwrap();
     upper_limit[3] -= 1;
 
     (Ipv4Addr::from(lower_limit), Ipv4Addr::from(upper_limit))

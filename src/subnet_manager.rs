@@ -265,4 +265,3 @@ pub fn get_iface_name_id_pair(iface_identifier: &IfaceIdentifier) -> Result<(u32
         ),
     })
 }
-

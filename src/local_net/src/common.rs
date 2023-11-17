@@ -1,5 +1,5 @@
-use default_net::interface::get_interfaces;
 use default_net;
+use default_net::interface::get_interfaces;
 use default_net::Interface;
 
 pub fn get_network_interfaces() -> Vec<Interface> {
