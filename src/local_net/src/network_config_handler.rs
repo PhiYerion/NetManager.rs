@@ -1,21 +1,22 @@
-use crate::{add_address, flush_addresses, set_default_route};
-use netlink_packet_route::RtnlMessage;
-use netlink_proto::Connection;
+use crate::{add_address, set_default_route};
 use rtnetlink::{new_connection, Handle};
 use std::io;
 use std::io::Error;
 use std::net::{IpAddr, Ipv4Addr};
 
 pub struct NetworkConfigHandler {
-    conn: Connection<RtnlMessage>, // This is required to keep the
-    // connection alive
+    // This is required to keep the connection alive
+    #[allow(dead_code)]
     handler: Handle,
 }
 
 impl NetworkConfigHandler {
     pub fn new() -> Result<NetworkConfigHandler, Error> {
-        let (conn, handler, _) = match new_connection() {
-            Ok(connection) => connection,
+        let handler = match new_connection() {
+            Ok((conn, handler, _)) => {
+                tokio::spawn(conn);
+                handler
+            }
             Err(_) => {
                 return Err(Error::from(io::Error::new(
                     io::ErrorKind::Other,
@@ -24,17 +25,19 @@ impl NetworkConfigHandler {
             }
         };
 
-        Ok(NetworkConfigHandler { conn, handler })
+        Ok(NetworkConfigHandler { handler })
     }
 
-    fn reset_connection(&mut self) -> Result<(), std::io::Error> {
-        (self.conn, self.handler, _) = new_connection()?;
+    fn start_connection(&mut self) -> Result<(), std::io::Error> {
+        let (conn, handler, _) = new_connection()?;
+        tokio::spawn(conn);
+        self.handler = handler;
 
         Ok(())
     }
 
     fn handle_rt_error(&mut self) -> Result<(), std::io::Error> {
-        self.reset_connection()?;
+        self.start_connection()?;
 
         // later have configs in this class (or something else)
         // and then flush entire network and redo the sections or
@@ -43,17 +46,23 @@ impl NetworkConfigHandler {
         Ok(())
     }
 
-    pub async fn flush_addresses(&self, interface: u32) {
-        let response = flush_addresses(&self.handler);
+    pub async fn flush_addresses(&self, iface_idx: u32) {
+        let _ = crate::flush_addresses(&self.handler, iface_idx).await;
+    }
+
+    pub async fn get_addresses(&self, iface_idx: u32) -> Vec<netlink_packet_route::AddressMessage> {
+        crate::get_addresses(&self.handler, iface_idx)
+            .await
+            .unwrap()
     }
 
     pub async fn add_address(
         &self,
-        interface: u32,
+        iface_idx: u32,
         address: IpAddr,
         prefix_len: u8,
     ) -> Result<(), std::io::Error> {
-        let response = add_address(&self.handler, interface, address, prefix_len).await;
+        let response = add_address(&self.handler, iface_idx, address, prefix_len).await;
         match response {
             Ok(_) => Ok(()),
             Err(_) => Err(std::io::Error::new(
