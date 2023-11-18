@@ -49,7 +49,7 @@ impl Network {
     }
 }
 
-pub fn get_network<'a>(interface_name: &String) -> Result<Network, Box<dyn Error>> {
+pub fn get_network(interface_name: &str) -> Result<Network, Box<dyn Error>> {
     let mac = get_mac(interface_name);
     let interface = match get_interface(interface_name) {
         Some(r) => r,
