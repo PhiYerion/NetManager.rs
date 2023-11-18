@@ -26,7 +26,7 @@ async fn main() {
         }
     }
     println!("Interface index: {}", iface_idx);
-    for address in nch.get_addresses(iface_idx).await.unwrap() {
+    for address in nch.get_addresses(iface_idx).await {
         println!("Address: {:?}", address);
     }
 
