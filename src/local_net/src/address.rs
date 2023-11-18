@@ -7,8 +7,13 @@ use std::net::IpAddr;
 
 pub async fn get_addresses(
     handle: &Handle,
+    iface_idx: u32,
 ) -> Result<Vec<AddressMessage>, Box<dyn std::error::Error>> {
-    let mut addresses = handle.address().get().execute();
+    let mut addresses = handle
+        .address()
+        .get()
+        .set_link_index_filter(iface_idx)
+        .execute();
     let mut addresses_vec = Vec::new();
 
     while let Some(route_message) = addresses.try_next().await? {
@@ -20,16 +25,16 @@ pub async fn get_addresses(
 
 pub async fn add_address(
     handle: &Handle,
-    interface: u32,
+    iface_idx: u32,
     address: IpAddr,
     prefix_len: u8,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let request = handle.address().add(interface, address, prefix_len);
+    let request = handle.address().add(iface_idx, address, prefix_len);
 
     request.execute().await?;
 
     // Validate:
-    for res_addr in get_addresses(handle).await? {
+    for res_addr in get_addresses(handle, iface_idx).await? {
         match address {
             IpAddr::V4(v4) => {
                 if res_addr.nlas.contains(&Address(v4.octets().to_vec())) {
@@ -54,8 +59,11 @@ pub async fn del_address(
     Ok(handle.address().del(address).execute().await?)
 }
 
-pub async fn flush_addresses(handle: &Handle) -> Result<(), Box<dyn std::error::Error>> {
-    for addr in get_addresses(&handle).await? {
+pub async fn flush_addresses(
+    handle: &Handle,
+    iface_idx: u32,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for addr in get_addresses(&handle, iface_idx).await? {
         handle.address().del(addr).execute().await?;
     }
 
