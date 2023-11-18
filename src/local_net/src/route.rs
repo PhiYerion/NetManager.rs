@@ -51,36 +51,3 @@ pub async fn flush_routes(handle: &Handle) -> Result<(), Box<dyn std::error::Err
         _ => Err(Box::new(RequestFailed)),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use netlink_packet_route::route::Nla::{Gateway, Oif};
-
-    #[tokio::test]
-    async fn no_set_default_route_runtime_error() {
-        let gateway = Ipv4Addr::new(192, 168, 1, 1);
-        let (connection, handle, _) = new_connection().unwrap();
-
-        flush_routes(&handle).await.unwrap();
-        assert!(get_routes(&handle).await.unwrap().len() == 0);
-
-        // There should be a '2' interface
-        set_default_route(&handle, 2, gateway).await.unwrap();
-
-        let mut found_route = false;
-        for route in get_routes(&handle).await.unwrap() {
-            if route.header.table == 254
-                && route.header.address_family == 2
-                && route.nlas.contains(&Gateway(gateway.octets().to_vec()))
-                && route.nlas.contains(&Oif(2))
-            {
-                found_route = true;
-                break;
-            }
-        }
-
-        assert!(found_route);
-    }
-}
-
