@@ -15,6 +15,7 @@ Refactor this into five parts:
 1. Mac address options
     a. random mac address (including proper changes to mimic real manufacturer addresses)
     b. random mac address from preconfigured lists for specific kinds of devices (router, desktop, laptop, iot, etc)
+        I. https://standards-oui.ieee.org/
 2. in-depth network logs
     a. Find all devices on the network
     b. Generate pcap files for specific devices
