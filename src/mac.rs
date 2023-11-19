@@ -21,9 +21,7 @@ pub fn set_mac(interface: &str, mac: MacAddr) {
         .unwrap()
         .sa_data;
 
-    let mut new_addr: [u8; 6] = [mac.0, mac.1, mac.2, mac.3, mac.4, mac.5];
-    new_addr[0] &= 0xfc;
-    new_addr[0] |= 0x02;
+    let new_addr: [u8; 6] = [mac.0, mac.1, mac.2, mac.3, mac.4, mac.5];
     for i in 0..6 {
         old[i] = new_addr[i] as c_char;
     }
@@ -34,6 +32,13 @@ pub fn set_mac(interface: &str, mac: MacAddr) {
     };
 
     set_hardware(new_socket().unwrap(), interface, sock).unwrap();
+}
+
+pub fn mac_convert_to_bia(mac: MacAddr) -> MacAddr {
+    let mut new_addr: [u8; 6] = [mac.0, mac.1, mac.2, mac.3, mac.4, mac.5];
+    new_addr[0] &= 0xfc;
+    new_addr[0] |= 0x02;
+    MacAddr::new(new_addr[0], new_addr[1], new_addr[2], new_addr[3], new_addr[4], new_addr[5])
 }
 
 pub fn get_mac(interface: &str) -> [u8; 14] {
