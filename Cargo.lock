@@ -3,22 +3,6 @@
 version = 3
 
 [[package]]
-name = "NetworkManager-rs"
-version = "0.1.0"
-dependencies = [
- "arrayref",
- "clap",
- "default-net 0.17.0",
- "dhcproto",
- "libc",
- "local_net",
- "netdevice",
- "pnet",
- "rand",
- "tokio",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -644,6 +628,22 @@ dependencies = [
  "futures",
  "libc",
  "log",
+ "tokio",
+]
+
+[[package]]
+name = "network-manager-rs"
+version = "0.1.0"
+dependencies = [
+ "arrayref",
+ "clap",
+ "default-net 0.17.0",
+ "dhcproto",
+ "libc",
+ "local_net",
+ "netdevice",
+ "pnet",
+ "rand",
  "tokio",
 ]
 

@@ -85,7 +85,7 @@ pub fn get_network(interface_name: &str) -> Result<Network, Box<dyn Error>> {
     //
     let mut e = Encoder::new(&mut buf);
     msg.encode(&mut e).unwrap();
-    let eframe = &mut build_dhcp_to_layer2(buf, &interface);
+    let eframe = &mut build_dhcp_to_layer2(buf, &interface).unwrap();
     dbg!("Built ethernet frame");
 
     let res = match get_dhcp_offer(

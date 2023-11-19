@@ -33,14 +33,29 @@ pub fn remove_trailing_zeros(mut packet: Vec<u8>) -> Vec<u8> {
 pub fn build_dhcp_to_layer2(
     dhcp_packet: Vec<u8>,
     interface: &NetworkInterface,
-) -> MutableEthernetPacket {
+) -> Result<MutableEthernetPacket, String> {
+    // We don't have a source addr yet, so we zero out this.'
     let source_ipv4 = Ipv4Addr::new(0, 0, 0, 0);
+    // We don't know where the router is, so we will broadcast this message'
     let destination_ipv4 = Ipv4Addr::new(255, 255, 255, 255);
 
     // UDP packet
-    let mut padding = [0; DHCP_PACKET_LEN + 8];
+    //   pnet requires &[u8], and this keeps this on the stack. DHCP packets shouldn't exceed 322
+    //   bytes. 322 bytes is small enough to where it should be on the stack.
+    let mut base_buffer = [0; DHCP_PACKET_LEN + 8];
+    let mut buffer = match base_buffer.get(0..dhcp_packet.len()) {
+        Some(mut x) => &mut x,
+        None => {
+            panic!("noooo");
+            return Err("DHCP packet length (".to_string()
+                + &dhcp_packet.len().to_string().as_str()
+                + ") is more than allowable DHCP packet length ("
+                + &DHCP_PACKET_LEN.to_string().as_str()
+                + ")");
+        }
+    };
     let comparison_copy = dhcp_packet.clone();
-    let mut udp_packet = MutableUdpPacket::new(&mut padding).unwrap();
+    let mut udp_packet = MutableUdpPacket::new(buffer).unwrap();
     {
         // Header
         udp_packet.set_source(68);
@@ -48,7 +63,7 @@ pub fn build_dhcp_to_layer2(
         udp_packet.set_length(DHCP_PACKET_LEN as u16);
 
         // Payload
-        udp_packet.set_payload(&dhcp_packet);
+        udp_packet.set_payload(buffer);
     }
     debug_assert_eq!(
         remove_trailing_zeros(udp_packet.payload().to_vec()),
@@ -89,5 +104,5 @@ pub fn build_dhcp_to_layer2(
     }
     assert_eq!(ethernet_packet.payload(), ipv4_packet.packet());
 
-    ethernet_packet
+    Ok(ethernet_packet)
 }
