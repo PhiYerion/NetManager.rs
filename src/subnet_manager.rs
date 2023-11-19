@@ -230,8 +230,7 @@ impl SubnetManager {
 pub fn iface_id_name_pair_matches(id: u32, name: String) -> bool {
     get_interfaces()
         .iter()
-        .find(|&iface| iface.index == id && iface.name == name)
-        .is_some()
+        .any(|iface| iface.index == id && iface.name == name)
 }
 
 pub fn get_iface_name_id_pair(iface_identifier: &IfaceIdentifier) -> Result<(u32, String), Error> {
