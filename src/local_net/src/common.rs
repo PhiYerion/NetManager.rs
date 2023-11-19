@@ -1,4 +1,3 @@
-use default_net;
 use default_net::interface::get_interfaces;
 use default_net::Interface;
 

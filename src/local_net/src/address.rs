@@ -2,7 +2,7 @@ use futures::TryStreamExt;
 use netlink_packet_route::address::Nla::Address;
 use netlink_packet_route::AddressMessage;
 use rtnetlink::Error::RequestFailed;
-use rtnetlink::{new_connection, Handle};
+use rtnetlink::Handle;
 use std::net::IpAddr;
 
 pub async fn get_addresses(
@@ -63,7 +63,7 @@ pub async fn flush_addresses(
     handle: &Handle,
     iface_idx: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    for addr in get_addresses(&handle, iface_idx).await? {
+    for addr in get_addresses(handle, iface_idx).await? {
         handle.address().del(addr).execute().await?;
     }
 

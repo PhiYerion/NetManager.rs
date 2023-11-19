@@ -17,12 +17,7 @@ impl NetworkConfigHandler {
                 tokio::spawn(conn);
                 handler
             }
-            Err(_) => {
-                return Err(Error::from(io::Error::new(
-                    io::ErrorKind::Other,
-                    "Netlink error",
-                )))
-            }
+            Err(_) => return Err(io::Error::new(io::ErrorKind::Other, "Netlink error")),
         };
 
         Ok(NetworkConfigHandler { handler })

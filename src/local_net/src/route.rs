@@ -1,7 +1,7 @@
 use futures::TryStreamExt;
 use netlink_packet_route::RouteMessage;
 use rtnetlink::Error::RequestFailed;
-use rtnetlink::{new_connection, Handle, IpVersion};
+use rtnetlink::{Handle, IpVersion};
 use std::net::Ipv4Addr;
 
 pub async fn get_routes(handle: &Handle) -> Result<Vec<RouteMessage>, Box<dyn std::error::Error>> {
