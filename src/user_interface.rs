@@ -24,7 +24,7 @@ pub fn interactive_cli() -> Args {
     while !interface_names.contains(&input) {
         println!("Choose an interface ({:?})", interface_names);
 
-        io::stdin().read_line(&mut input);
+        let _ = io::stdin().read_line(&mut input);
 
         input = input.trim().to_string();
     }
@@ -32,7 +32,7 @@ pub fn interactive_cli() -> Args {
     Args { interface: input }
 }
 
-pub fn cli_get_device_addr(interface: &String) -> Ipv4Addr {
+pub fn cli_get_device_addr(interface: &str) -> Ipv4Addr {
     // Limits:
     let (lower_limit, upper_limit) = get_subnet_limits(&get_network(interface).unwrap());
     let lower_octets = lower_limit.octets();
@@ -45,7 +45,7 @@ pub fn cli_get_device_addr(interface: &String) -> Ipv4Addr {
     for i in 0..3 {
         if lower_octets[i] == upper_octets[i] {
             base_octets_str.push_str(&lower_octets[i].to_string());
-            base_octets_str.push_str(".");
+            base_octets_str.push('.');
         } else {
             break;
         }
@@ -53,26 +53,24 @@ pub fn cli_get_device_addr(interface: &String) -> Ipv4Addr {
 
     // Print the range
     {
+        let print_address = |octets: &[u8; 4]| {
+            for (index, octect) in octets.iter().enumerate() {
+                print!("{}", octect);
+
+                if index < 3 {
+                    print!(".");
+                }
+            }
+            println!();
+        };
+
         println!("Choose an address: (format: constant.constant.lower-upper.lower-upper)");
 
-        print!("Lower limit: ");
-        for i in 0..4 {
-            print!("{}", lower_octets[i]);
+        println!("Lower limit: ");
+        print_address(&lower_octets);
 
-            if i < 3 {
-                print!(".");
-            }
-        }
-
-        print!("\nUpper Limit: ");
-        for i in 0..4 {
-            print!("{}", upper_octets[i]);
-
-            if i < 3 {
-                print!(".");
-            }
-        }
-        println!();
+        println!("Upper Limit: ");
+        print_address(&upper_octets);
     }
 
     // Get user input
@@ -80,7 +78,7 @@ pub fn cli_get_device_addr(interface: &String) -> Ipv4Addr {
         let mut input = String::new();
 
         let validate_input = |s: &String| -> Result<Ipv4Addr, io::Error> {
-            let addr = match Ipv4Addr::from_str(&s) {
+            let addr = match Ipv4Addr::from_str(s) {
                 Ok(addr) => addr,
                 Err(e) => return Err(io::Error::new(io::ErrorKind::InvalidInput, e)),
             };
@@ -102,7 +100,7 @@ pub fn cli_get_device_addr(interface: &String) -> Ipv4Addr {
                     input = base_octets_str.clone();
                     print!("{}", base_octets_str.trim());
                     io::stdout().flush().unwrap();
-                    io::stdin().read_line(&mut input);
+                    let _ = io::stdin().read_line(&mut input);
 
                     input = input.trim().to_string();
                 }

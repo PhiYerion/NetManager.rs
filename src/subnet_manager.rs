@@ -120,7 +120,7 @@ impl SubnetManager {
         iface_identifier: &IfaceIdentifier,
         id: u32,
     ) -> Result<(), Error> {
-        if self.virtual_iface_exists(&iface_identifier) {
+        if self.virtual_iface_exists(iface_identifier) {
             return Err(Error::from(AlreadyExists));
         }
 
@@ -138,7 +138,7 @@ impl SubnetManager {
         iface_identifier: &IfaceIdentifier,
         name: String,
     ) -> Result<(), Error> {
-        if self.virtual_iface_exists(&iface_identifier) {
+        if self.virtual_iface_exists(iface_identifier) {
             return Err(Error::from(AlreadyExists));
         }
 
@@ -216,17 +216,11 @@ impl SubnetManager {
 impl SubnetManager {
     fn virtual_iface_exists(&self, iface_identifier: &IfaceIdentifier) -> bool {
         match iface_identifier {
-            IfaceIdentifier::ID(id) => self
-                .virtual_ifaces
-                .iter()
-                .find(|&iface| iface.id == *id)
-                .is_some(),
+            IfaceIdentifier::ID(id) => self.virtual_ifaces.iter().any(|iface| iface.id == *id),
 
-            IfaceIdentifier::Name(name) => self
-                .virtual_ifaces
-                .iter()
-                .find(|&iface| iface.name == *name)
-                .is_some(),
+            IfaceIdentifier::Name(name) => {
+                self.virtual_ifaces.iter().any(|iface| iface.name == *name)
+            }
         }
     }
 }

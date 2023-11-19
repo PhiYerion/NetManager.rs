@@ -1,6 +1,6 @@
 // Build the DHCP Discover packet
 use pnet::datalink::NetworkInterface;
-use pnet::packet::FromPacket;
+
 use pnet::packet::{
     ethernet::{EtherTypes, MutableEthernetPacket},
     ip::IpNextHeaderProtocols,

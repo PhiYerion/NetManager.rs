@@ -118,7 +118,7 @@ fn get_interface(interface_name: &str) -> Option<NetworkInterface> {
 
 fn send_packet(interface: &NetworkInterface, packet: EthernetPacket) -> Box<dyn DataLinkReceiver> {
     // Send the packet
-    let (mut tx, rx) = match datalink::channel(&interface, Default::default()) {
+    let (mut tx, rx) = match datalink::channel(interface, Default::default()) {
         Ok(Channel::Ethernet(tx, rx)) => (tx, rx),
         Ok(_) => panic!("Unknown channel type"),
         Err(e) => panic!("Error creating datalink channel: {}", e),
@@ -129,6 +129,8 @@ fn send_packet(interface: &NetworkInterface, packet: EthernetPacket) -> Box<dyn 
     rx
 }
 
+// This is most likely the hottest peice of code. To optimize this, we should merely go to
+// predetermined offsets in the packet.
 fn get_dhcp_offer(xid: u32, mut rx: Box<dyn DataLinkReceiver>, mac: [u8; 14]) -> Option<Dhcp> {
     while let Ok(base_packet) = rx.next() {
         // Process the received packet
