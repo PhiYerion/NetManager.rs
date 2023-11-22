@@ -1,6 +1,5 @@
-use crate::send_dhcp::{get_network, Network};
+/* use crate::send_dhcp::{get_network, Network};
 use clap::Parser;
-use local_net::get_interface_names;
 use std::io;
 use std::io::Write;
 use std::net::Ipv4Addr;
@@ -133,4 +132,4 @@ fn get_subnet_limits(network: &Network) -> (Ipv4Addr, Ipv4Addr) {
     upper_limit[3] -= 1;
 
     (Ipv4Addr::from(lower_limit), Ipv4Addr::from(upper_limit))
-}
+} */
