@@ -8,3 +8,9 @@ Find conflicting IP addresses and notify the user of those conflicts.
 Test configurations in a container with the host network to make sure that it works
 
 Integrate https://maclookup.app/downloads/json-database into mac setter
+
+## Build
+git clone https://github.com/PhiYerion/NetManager.rs; cd NetManager.rs; ./build.sh
+
+## Usage
+This is a library that happens to have a main for testing. This is very suboptimal and is planned to be abstracted into three different modules.
