@@ -10,7 +10,8 @@ Test configurations in a container with the host network to make sure that it wo
 Integrate https://maclookup.app/downloads/json-database into mac setter
 
 ## Build
-git clone https://github.com/PhiYerion/NetManager.rs; cd NetManager.rs; ./build.sh
+`git clone https://github.com/PhiYerion/NetManager.rs; cd NetManager.rs; chmod +x ./build.sh; ./build.sh`
+or `git clone https://github.com/PhiYerion/NetManager.rs; cd NetManager.rs; cargo build`
 
 ## Usage
 This is a library that happens to have a main for testing. This is very suboptimal and is planned to be abstracted into three different modules.
