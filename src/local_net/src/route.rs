@@ -1,6 +1,7 @@
-use futures::{TryStreamExt, Future};
-use netlink_packet_route::RouteMessage;
+use futures::{Future, TryStreamExt};
+use log::{debug, error, info, trace, warn};
 use netlink_packet_route::route::Nla;
+use netlink_packet_route::RouteMessage;
 use rtnetlink::{Handle, IpVersion};
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -45,10 +46,11 @@ pub async fn modify_routes<F, Fut>(
     handle: &Handle,
     ip_version: IpVersion,
     function: F,
-) -> Result<(), RTNetlinkError> 
-where 
+) -> Result<(), RTNetlinkError>
+where
     F: FnOnce(RouteMessage) -> Fut + Copy,
-    Fut: Future<Output = Result<(), RTNetlinkError>> {
+    Fut: Future<Output = Result<(), RTNetlinkError>>,
+{
     let mut routes = handle.route().get(ip_version).execute();
 
     while let Some(route_message) = routes.try_next().await.map_err(RTNetlinkError::RTNetlink)? {
@@ -64,17 +66,22 @@ pub async fn flush_routes(
     ip_version: IpVersion,
     iface_idx: u32,
 ) -> Result<(), RTNetlinkError> {
-    modify_routes(handle, ip_version.clone(), async move |route_message| -> Result<(), RTNetlinkError> {
-        for nla in route_message.nlas.iter() {
-            if let Nla::Oif(oif) = nla {
-                if *oif == iface_idx {
-                    let request = handle.route().del(route_message.clone());
-                    request.execute().await.map_err(RTNetlinkError::RTNetlink)?;
+    modify_routes(
+        handle,
+        ip_version.clone(),
+        async move |route_message| -> Result<(), RTNetlinkError> {
+            for nla in route_message.nlas.iter() {
+                if let Nla::Oif(oif) = nla {
+                    if *oif == iface_idx {
+                        let request = handle.route().del(route_message.clone());
+                        request.execute().await.map_err(RTNetlinkError::RTNetlink)?;
+                    }
                 }
             }
-        }
-        Ok(())
-    }).await?;
+            Ok(())
+        },
+    )
+    .await?;
 
     let mut routes = handle.route().get(ip_version).execute();
 
@@ -117,14 +124,33 @@ pub struct Route {
     pub version_opts: VersionOptions,
 }
 
-pub async fn add_route(
-    handle: &Handle,
-    route: Route,
-) -> Result<(), RTNetlinkError> {
+pub struct Scope {}
+impl Scope {
+    pub const UNIVERSE: u8 = 0;
+    pub const SITE: u8 = 200;
+    pub const LINK: u8 = 253;
+    pub const HOST: u8 = 254;
+    pub const NOWHERE: u8 = 255;
+}
+
+pub struct Table {}
+impl Table {
+    pub const UNSPEC: u32 = 0;
+    pub const DEFAULT: u32 = 253;
+    pub const LOCAL: u32 = 255;
+    pub const MAIN: u32 = 254;
+}
+
+pub async fn add_route(handle: &Handle, route: Route) -> Result<(), RTNetlinkError> {
     // Although the function calls are the same, the type changes after .v4 or .v6.
+
     match &route.version_opts {
         VersionOptions::V4(v4_opts) => {
-                handle
+            debug!(
+                "Adding {}/{} via {} on interface {}",
+                v4_opts.destination, route.prefix_len, v4_opts.gateway, route.iface_idx
+            );
+            handle
                 .route()
                 .add()
                 .v4()
@@ -133,10 +159,22 @@ pub async fn add_route(
                 .gateway(v4_opts.gateway)
                 // Kernel address:
                 .destination_prefix(v4_opts.destination, route.prefix_len)
-                .execute().await.map_err(RTNetlinkError::RTNetlink)?
-        },
+                .table_id(243)
+                .scope(Scope::UNIVERSE)
+                .protocol(4)
+                .execute()
+                .await
+                .map_err(|e| {
+                    error!("add_route: RTNETLINK answers with error");
+                    RTNetlinkError::RTNetlink(e)
+                })?
+        }
         VersionOptions::V6(v6_opts) => {
-                handle
+            debug!(
+                "Adding {}/{} via {} on interface {}",
+                v6_opts.destination, route.prefix_len, v6_opts.gateway, route.iface_idx
+            );
+            handle
                 .route()
                 .add()
                 .v6()
@@ -145,9 +183,15 @@ pub async fn add_route(
                 .gateway(v6_opts.gateway)
                 // Kernel address:
                 .destination_prefix(v6_opts.destination, route.prefix_len)
-                .execute().await.map_err(RTNetlinkError::RTNetlink)?
-        },
+                .execute()
+                .await
+                .map_err(|e| {
+                    error!("add_route: RTNETLINK answers with error");
+                    RTNetlinkError::RTNetlink(e)
+                })?
+        }
     };
+    trace!("add route executed successfully");
 
     // Verify
     let ip_version = match route.version_opts {
@@ -155,22 +199,25 @@ pub async fn add_route(
         VersionOptions::V6(_) => IpVersion::V6,
     };
 
-    let mut res_routes = handle
-        .route()
-        .get(ip_version)
-        .execute();
+    let mut res_routes = handle.route().get(ip_version).execute();
 
-    while let Some(route_message) = res_routes.try_next().await.map_err(RTNetlinkError::RTNetlink)? {
+    while let Some(route_message) = res_routes
+        .try_next()
+        .await
+        .map_err(RTNetlinkError::RTNetlink)?
+    {
         for nla in route_message.nlas.iter() {
             if let Nla::Oif(oif) = nla {
                 if *oif == route.iface_idx {
-                    return Err(RTNetlinkError::ValidationFailed);
+                    debug!("Route added successfully!");
+                    return Ok(());
                 }
             }
         }
     }
 
-    Ok(())
+    warn!("Route was not found after adding it.");
+    Err(RTNetlinkError::ValidationFailed)
 }
 
 #[cfg(test)]
@@ -178,22 +225,26 @@ mod test_routes {
     use default_net::get_interfaces;
 
     #[tokio::test]
-    async fn tester() {
+    async fn add_route() {
+        pretty_env_logger::init();
         use super::*;
         use std::net::Ipv4Addr;
 
-        let iface_idx = get_interfaces().iter().find(|iface| 
-            iface.name.starts_with('e')
-        ).unwrap().index;
+        let iface_idx = get_interfaces()
+            .iter()
+            .find(|iface| iface.name.starts_with('e'))
+            .unwrap()
+            .index;
+        println!("Using interface index: {}", iface_idx);
 
         let (connection, handle, _) = rtnetlink::new_connection().unwrap();
         tokio::spawn(connection);
 
-        let destination = Ipv4Addr::new(10, 0, 0, 0);
-        let prefix_len = 8;
-        let gateway = Ipv4Addr::new(10, 0, 0, 1);
+        let destination = Ipv4Addr::new(192, 168, 0, 0);
+        let prefix_len = 24;
+        let gateway = Ipv4Addr::new(192, 168, 0, 1);
 
-        let res = add_route(
+        add_route(
             &handle,
             Route {
                 iface_idx,
@@ -202,10 +253,9 @@ mod test_routes {
                     destination,
                     gateway,
                 }),
-            }
+            },
         )
-        .await;
-
-        assert!(res.is_ok());
+        .await
+        .unwrap();
     }
 }

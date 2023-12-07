@@ -17,6 +17,7 @@ libc = "^0.2.147"
 rand = "^0.8.5"
 default-net = "^0.17.0"
 dhcproto = "^0.11.0"
+rtnetlink = "0.13.1"
 
 [profile.release]
 opt-level = 3

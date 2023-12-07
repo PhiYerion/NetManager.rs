@@ -1,6 +1,5 @@
-use crate::mac::set_mac;
+/* use crate::mac::set_mac;
 use default_net::interface::get_interfaces;
-use local_net::NetworkConfigHandler;
 use pnet::util::MacAddr;
 use std::io::Error;
 use std::io::ErrorKind::{AlreadyExists, NotFound};
@@ -257,4 +256,4 @@ pub fn get_iface_name_id_pair(iface_identifier: &IfaceIdentifier) -> Result<(u32
                 .clone(),
         ),
     })
-}
+} */
